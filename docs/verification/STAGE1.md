@@ -27,3 +27,27 @@ Date: 2026-11-18. Source IMInfer main `2d420a75e6771afb1959ef599062aea620d1902a`
 - MadObs adapter not implemented; host telemetry is optional and does not link MadObs.
 - Android/iOS/OHOS packages, native device tests, foreground/background resource controls and multi-SDK link matrix NOT run.
 - Independent security/model-distribution/legal audit and binary-release SBOM/signatures NOT complete. This source-stage publication is not GA or G3/G4 completion.
+
+## Post-publication CPU-budget regression
+
+The first public CI run (44307614828) passed emulated checks and all nine native
+backend tests, but a native FFI determinism test timed out in its unchanged
+five-second event wait. Locally, the published binary under Linux two-CPU
+affinity reproduced failures in both real-model FFI tests in three consecutive
+full FFI runs (46/48 passed; 28.57, 28.58 and 31.91 seconds). An isolated serial
+native run also failed, so test concurrency alone was not the fix.
+
+The scheduler's four-thread default was forwarded unbounded to GGML even when
+only two CPUs were available. Native context creation now caps the hint to
+`std::thread::available_parallelism()` (one thread on query failure). This is a
+per-context resource bound, not a process-wide concurrency limiter. Affinity or
+quota changes after context creation are not dynamically re-applied.
+
+With only that resource-bound change, the same two-CPU parallel full FFI suite
+passed 48/48 three times (2.03, 2.11 and 2.03 seconds). Neither the five-second
+test wait nor the ten-second request deadline nor golden assertions changed.
+Final local verification: default **315 passed**; entire native workspace under
+two-CPU affinity **332 passed**, zero failures/ignored; native-feature clippy
+with `-D warnings` passed. One new test exhaustively checks all u8 thread hints
+against representative capacities including zero and usize::MAX. These local
+results do not by themselves establish the follow-up remote CI outcome.

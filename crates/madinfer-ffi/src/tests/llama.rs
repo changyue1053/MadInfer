@@ -1,7 +1,8 @@
 //! 真实引擎金样进 `cargo test`（madai-w17 I-C-16 ④；本模块只在 feature `llama-sys` 下编）。
 //!
 //! 门控：`MADINFER_LLAMA_MODEL`（GGUF 路径，`tools/models/fetch.sh <id>`）缺席 → 失败，不允许 skip-as-green。
-//! 金样事实源仍是 `crates/madinfer-backend-llama/tests/golden/llama_host.txt`（宿主 macOS arm64 · CPU · greedy）：本用例走**核站全链**
+//! 金样按 OS/架构选择：Linux x86_64 使用 llama_linux_x86_64.txt；macOS ARM 保留历史 llama_host.txt。
+//! 本用例走**核站全链**
 //! （`InferCore::create(backend = Llama, model_path)` → 路由 → worker `load(LoadOpts::weights_path)` → `stream`）取前 8 词元，
 //! 断言文本是金样 32 词元文本的前缀——同一模型、同一 prompt、greedy，链路不同结果不得漂移。
 

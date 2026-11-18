@@ -13,7 +13,7 @@ use super::*;
 
 /// 调试面用例（create_debug / test_stop_control 两 profile 都导出；debug 真语义 / release 恒 4005，模块内按 cfg 分两组）。
 mod debug;
-/// 真实引擎金样用例（madai-w17 I-C-16；feature `llama-sys` + `MADINFER_LLAMA_MODEL` 门控，缺席 skip 留痕）。
+/// 真实引擎金样用例（madai-w17 I-C-16；feature `llama-sys` + `MADINFER_LLAMA_MODEL` 门控，缺席即失败）。
 #[cfg(feature = "llama-sys")]
 mod llama;
 

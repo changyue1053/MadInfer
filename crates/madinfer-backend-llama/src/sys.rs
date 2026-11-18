@@ -288,10 +288,15 @@ impl ContextHandle {
         n_batch: u32,
         n_threads: u8,
     ) -> Option<Self> {
+        // Scheduler thread counts are hints, not a guarantee of host CPU capacity.
+        // In particular, a four-thread spinning GGML pool on a two-CPU runner can
+        // starve its own decode workers. Respect affinity/quota where reported by
+        // Rust; conservatively use one thread when capacity cannot be queried.
+        let available = std::thread::available_parallelism().map_or(1, usize::from);
+        let n_threads = bounded_threads(n_threads, available);
         // SAFETY: 模型句柄有效；桥对 NULL 有定义。
-        let raw = unsafe {
-            madinfer_llama_ctx_new(model.ptr(), n_ctx, n_batch, i32::from(n_threads.max(1)))
-        };
+        let raw =
+            unsafe { madinfer_llama_ctx_new(model.ptr(), n_ctx, n_batch, i32::from(n_threads)) };
         NonNull::new(raw).map(|raw| Self {
             raw,
             _model: Arc::clone(model),
@@ -338,5 +343,27 @@ impl Drop for ContextHandle {
     fn drop(&mut self) {
         // SAFETY: 指针由 new 取得且只释放一次。
         unsafe { madinfer_llama_ctx_free(self.raw.as_ptr()) };
+    }
+}
+
+fn bounded_threads(requested: u8, available: usize) -> u8 {
+    usize::from(requested.max(1)).min(available.max(1)) as u8
+}
+
+#[cfg(test)]
+mod thread_budget_tests {
+    use super::bounded_threads;
+
+    #[test]
+    fn thread_hint_never_exceeds_available_cpus() {
+        for requested in 0..=u8::MAX {
+            for available in [0, 1, 2, 4, 8, 256, usize::MAX] {
+                let actual = usize::from(bounded_threads(requested, available));
+                assert!((1..=usize::from(requested.max(1))).contains(&actual));
+                assert!(actual <= available.max(1));
+            }
+        }
+        assert_eq!(bounded_threads(4, 2), 2);
+        assert_eq!(bounded_threads(4, 8), 4);
     }
 }
