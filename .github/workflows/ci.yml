@@ -15,4 +15,11 @@ jobs:
       - uses: actions/checkout@v4
       - run: rustup toolchain install 1.100.0
       - run: MADINFER_MODEL_CACHE="$PWD/target/models" bash tools/models/fetch.sh smollm2-135m-instruct-q4_k_m
+      - name: Record native runner CPU capacity
+        run: |
+          nproc
+          grep Cpus_allowed_list /proc/self/status
+          for f in /sys/fs/cgroup/cpu.max /sys/fs/cgroup/cpu/cpu.cfs_quota_us /sys/fs/cgroup/cpu/cpu.cfs_period_us; do
+            if test -r "$f"; then printf '%s: ' "$f"; cat "$f"; fi
+          done
       - run: MADINFER_LLAMA_MODEL="$PWD/target/models/smollm2-135m-instruct-q4_k_m.gguf" bash ci/native.sh

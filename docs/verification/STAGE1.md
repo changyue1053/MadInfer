@@ -51,3 +51,28 @@ two-CPU affinity **332 passed**, zero failures/ignored; native-feature clippy
 with `-D warnings` passed. One new test exhaustively checks all u8 thread hints
 against representative capacities including zero and usize::MAX. These local
 results do not by themselves establish the follow-up remote CI outcome.
+
+### Shared-runner concurrency boundary
+
+Remote follow-up run 44309463976 still failed: both real-model FFI cases
+produced correct golden-prefix tokens, then reached their unchanged 10-second
+request deadline (2001). Backend native 9/9 and the emulated job passed. The
+per-context cap is not a global CPU reservation and does not cure contention
+between contexts. The remote runner's actual CPU allocation was not recorded
+in those runs, so attributing its exact hardware capacity would be speculative.
+
+On the same local host, the corrected binary with four-CPU affinity and four
+parallel test cases reproduced native FFI failures in three runs (46/48,
+47/48, 47/48). The identical binary with four-CPU affinity and serial test cases
+passed all 48 FFI cases three times (4.28, 3.89, 3.88 seconds); isolated native
+FFI cases passed 3/3 in 1.09 seconds. These are implementation-owner
+experiments, not an independent rerun of the old failing version.
+
+`ci/native.sh` now runs functional/golden test cases serially. The default
+emulated gate retains ordinary test parallelism. No model, golden, deadline,
+wait duration, assertion or product locking changed for this isolation. The
+native CI gate verifies real inference functionality, not multi-context
+parallel latency/throughput. Applications sharing CPUs across contexts can
+still encounter deadlines under contention; a designed aggregate resource
+budget remains future work. CPU affinity/cgroup capacity is now printed by the
+native CI job to avoid assuming its runner allocation.
