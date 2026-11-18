@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mad.example/infer/event.v1.json",
+  "title": "infer event.v1",
+  "description": "infer_event.payload（设计文档 §5.1 P1）。顺序保证：每个请求恰一个 started，随后零或多个 delta（seq 从 0 递增），最后恰一个 complete 或 failed。delta 的 text 只在完整 UTF-8 码点边界切分。仿真核（backend-llama Emulated）的 delta 文本按输出字节数切片，每片 ≤ 32 字节、完整码点边界；输出 ≤ 64 字节时帧数 = 片数、逐帧文本确定，更长输出帧数随合帧窗（madai-w12 I-C-11）。",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["schema", "type", "request", "source", "model", "route_reason", "queued_ms"],
+      "properties": {
+        "schema": { "const": 1 },
+        "type": { "const": "started" },
+        "request": { "$ref": "#/$defs/request_id" },
+        "source": { "$ref": "#/$defs/source" },
+        "model": {
+          "type": "object",
+          "required": ["package"],
+          "properties": {
+            "package": { "$ref": "#/$defs/package_ref" },
+            "base": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+            "adapter": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "route_reason": { "enum": ["privacy_forced_local", "static_tier", "availability", "switch", "default", "fallback"] },
+        "queued_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["schema", "type", "request", "seq", "text", "tokens"],
+      "properties": {
+        "schema": { "const": 1 },
+        "type": { "const": "delta" },
+        "request": { "$ref": "#/$defs/request_id" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "text": { "type": "string" },
+        "tokens": { "type": "integer", "minimum": 0 },
+        "patch": { "type": "array", "description": "RFC 6902 JSON Patch；结构化输出时每帧携带且逐帧独立可应用（核侧合帧合并 patch 内容、不产生跳号；madai-w06 E6 承诺），seq 自 0 严格递增", "items": { "type": "object" } }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["schema", "type", "request", "output", "stats"],
+      "properties": {
+        "schema": { "const": 1 },
+        "type": { "const": "complete" },
+        "request": { "$ref": "#/$defs/request_id" },
+        "output": { "$ref": "#/$defs/output" },
+        "stats": { "$ref": "#/$defs/stats" },
+        "confidence_bp": { "type": ["integer", "null"], "minimum": 0, "maximum": 10000 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["schema", "type", "request", "code", "kind"],
+      "properties": {
+        "schema": { "const": 1 },
+        "type": { "const": "failed" },
+        "request": { "$ref": "#/$defs/request_id" },
+        "code": { "type": "integer", "minimum": 1000, "maximum": 3999, "description": "附录 B 稳定错误码：1xxx 可重试、2xxx 需降级、3xxx 不可重试" },
+        "kind": { "type": "string", "pattern": "^[a-z_]+$" },
+        "retry_after_ms": { "type": ["integer", "null"], "minimum": 0 },
+        "partial": { "anyOf": [{ "$ref": "#/$defs/output" }, { "type": "null" }] }
+      }
+    }
+  ],
+  "$defs": {
+    "request_id": { "type": "integer", "minimum": 1 },
+    "source": { "enum": ["system_model", "bundled", "cloud"] },
+    "package_ref": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+$" },
+    "output": {
+      "oneOf": [
+        { "type": "object", "required": ["type", "value"], "properties": { "type": { "const": "text" }, "value": { "type": "string" } } },
+        { "type": "object", "required": ["type", "value"], "properties": { "type": { "const": "structured" }, "value": { "description": "已过 schema 校验的 JSON 值" } } },
+        { "type": "object", "required": ["type", "buffer", "dims"], "properties": { "type": { "const": "embedding" }, "buffer": { "type": "integer" }, "dims": { "type": "array", "items": { "type": "integer" } } } },
+        { "type": "object", "required": ["type", "labels"], "properties": { "type": { "const": "labels" }, "labels": { "type": "array", "items": { "type": "object", "required": ["id", "score_bp"], "properties": { "id": { "type": "string" }, "score_bp": { "type": "integer", "minimum": 0, "maximum": 10000 } } } } } }
+      ]
+    },
+    "stats": {
+      "type": "object",
+      "required": ["ttft_ms", "decode_ms", "prompt_tokens", "gen_tokens", "tps_x100", "peak_memory_mb", "source", "fallback_steps", "prefix_hit"],
+      "properties": {
+        "ttft_ms": { "type": "integer", "minimum": 0 },
+        "decode_ms": { "type": "integer", "minimum": 0 },
+        "prompt_tokens": { "type": "integer", "minimum": 0 },
+        "gen_tokens": { "type": "integer", "minimum": 0 },
+        "tps_x100": { "type": "integer", "minimum": 0 },
+        "peak_memory_mb": { "type": "integer", "minimum": 0 },
+        "source": { "$ref": "#/$defs/source" },
+        "fallback_steps": { "type": "integer", "minimum": 0 },
+        "prefix_hit": { "type": "boolean" }
+      }
+    }
+  }
+}

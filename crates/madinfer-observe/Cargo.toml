@@ -1,0 +1,15 @@
+[package]
+name = "madinfer-observe"
+description = "横切 · 观测（设计文档 C13）：闭合的白名单事件枚举、注册制 id 新类型、采样、批量、向宿主 sink 刷出；无自由文本。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+madinfer-core-types.workspace = true
+madinfer-host.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

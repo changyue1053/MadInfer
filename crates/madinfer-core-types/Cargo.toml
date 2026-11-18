@@ -1,0 +1,14 @@
+[package]
+name = "madinfer-core-types"
+description = "端智能 SDK 底座类型：标识、枚举、错误、预算、追踪上下文（设计文档 §4.1 C1）。不含行为，不含业务语义。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# madai-w01 I1：零依赖、std-only。serde 派生随 I2 的 wire 层以 feature = "serde" 加入（optional），
+# 保证本 crate 在无网 CI 与 --offline 下永远可编译；smol_str / semver 同样推迟到有实际调用方的里程碑。
+[dependencies]
+
+[lints]
+workspace = true

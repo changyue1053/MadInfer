@@ -1,0 +1,29 @@
+[package]
+name = "madinfer-backend-llama"
+description = "C7 llama.cpp 后端适配器：缺省为确定性仿真核（seed + 输入词元 → 确定性 token 流；六条契约 + 金样锁行为）；真实引擎经 cargo feature `llama-sys` 门控（缺省关；开启后 build.rs 以系统 cmake 编 third_party/llama.cpp CPU 静态库并链入，宿主 spike madai-w16 I-C-15）。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[features]
+# 真实引擎链接（缺省关）：开启后 build.rs 经 csrc/CMakeLists.txt 编 third_party/llama.cpp（钉版 third_party/PINS.toml）
+# + C 桥，链进 sys 模块；无额外 crate 依赖（cmake / cc crate 都不引：deny.toml 白名单与 vendor/ 离线纪律）。
+llama-sys = []
+
+[dependencies]
+madinfer-core-types.workspace = true
+madinfer-backend.workspace = true
+madinfer-host.workspace = true
+
+[dev-dependencies]
+madinfer-testkit.workspace = true
+
+# 真实引擎用例：只在 feature 开时编 / 跑；模型经 MADINFER_LLAMA_MODEL 环境变量门控（缺席 → 测试失败，禁止 skip-as-green）。
+[[test]]
+name = "native"
+required-features = ["llama-sys"]
+
+[lints]
+workspace = true

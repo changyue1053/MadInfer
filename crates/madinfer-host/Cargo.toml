@@ -1,0 +1,13 @@
+[package]
+name = "madinfer-host"
+description = "宿主端口（设计文档 §4.3 C16）：SDK 需要宿主提供的全部能力的 trait 与纯数据类型；唯一的 Instant::now 豁免点 MonotonicClock。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+madinfer-core-types.workspace = true
+
+[lints]
+workspace = true

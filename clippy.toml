@@ -1,0 +1,15 @@
+# MadInfer workspace 的 clippy 配置（与 mad-repo/imcore/clippy.toml 同一口径；判红命令：
+# `cargo clippy --offline --workspace --all-targets -- -D warnings`，disallowed 命中即判红）。
+#
+# 豁免协议（同 imcore 规则第 7 条）：豁免点必须 item 级 `#[allow(clippy::disallowed_methods / disallowed_types)]` 并在同处注明理由；
+# 允许形态限四类：FFI 出入口、Condvar 配对的 Mutex、进程级快照整包换指针、测试夹具。
+# MadInfer 当前豁免点：madinfer-host `MonotonicClock`（唯一 Instant::now 读取点）。
+
+disallowed-methods = [
+    { path = "std::time::SystemTime::now", reason = "内核必须走注入时钟（madinfer_host::Clock）：墙钟直取会破坏确定性仿真与回放" },
+    { path = "std::time::Instant::now", reason = "内核必须走注入时钟：单调钟同样只准经 madinfer_host::MonotonicClock 这一个豁免点获取" },
+]
+
+disallowed-types = [
+    { path = "std::sync::Mutex", reason = "内核状态归属单 actor 线程（调度 control 线程 / 装配线程），禁止共享锁；跨线程只走有界邮箱与不可变快照" },
+]

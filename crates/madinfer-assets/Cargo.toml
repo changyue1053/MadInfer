@@ -1,0 +1,14 @@
+[package]
+name = "madinfer-assets"
+description = "L5 资产（设计文档 C10）：算法包安装状态机（验签 → 下载 → 校验 → 入库 → 激活）、内容寻址布局、ACTIVE / PREVIOUS 指针、GC 计划。sans-io：下载 / 落盘以效果返回。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+madinfer-core-types.workspace = true
+madinfer-fsm.workspace = true
+
+[lints]
+workspace = true

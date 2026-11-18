@@ -1,0 +1,13 @@
+source_repository = "changyue1053/IMInfer"
+source_commit = "2d420a75e6771afb1959ef599062aea620d1902a"
+source_tree = "15658713a0f52715f49c17ae8c92f9a9b480d122"
+source_license_metadata = "Proprietary"
+source_license_text = "not supplied upstream; no new license grant asserted"
+selection = "Independent IMInfer main is the chosen baseline; not assumed equal to mad-kernel imported copy"
+retained = "All 16 workspace crates, tests, schemas, fixtures, tooling; 373 exact llama.cpp vendor blobs"
+excluded = ["old crates.io vendor tree (re-resolved exact Cargo.lock packages from public registry)"]
+changes = ["MadInfer crate/C/environment namespaces", "explicit C backend selection/query", "native tests fail without model", "portable model size check", "standalone docs/CI"]
+llama_commit = "91f6a6cf361385700bbe15981f0f39909df77498"
+llama_verified_blobs = 373
+llama_commit_archive_sha256 = "5cd23f47fa4a989a85b3051c8666501b8359adad270bf08cf6491f06df66cfdf"
+model_weights_committed = false

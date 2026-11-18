@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mad.example/infer/cloud.v1.json",
+  "title": "infer cloud.v1（HTTP + SSE 载荷）",
+  "description": "云端适配器协议（设计文档 §5.6 P6）。POST /v1/generate 请求体与 SSE 事件 data 载荷。服务端校验 privacy ∈ {public, internal}，否则 403 + code 3006（第二道门；第一道在端上路由层）。",
+  "$defs": {
+    "request": {
+      "type": "object",
+      "required": ["schema", "capability", "privacy", "turn", "options", "output", "deadline_ms", "business"],
+      "properties": {
+        "schema": { "const": 1 },
+        "capability": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+        "privacy": { "enum": ["public", "internal"] },
+        "turn": {
+          "type": "object",
+          "required": ["messages"],
+          "properties": {
+            "messages": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["role", "content"], "properties": { "role": { "enum": ["system", "user", "assistant", "tool"] }, "content": { "type": "string" } } } },
+            "tools": { "type": "array", "items": { "type": "object" } }
+          }
+        },
+        "options": {
+          "type": "object",
+          "properties": {
+            "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+            "top_p": { "type": "number", "minimum": 0, "maximum": 1 },
+            "max_tokens": { "type": "integer", "minimum": 1 },
+            "stop": { "type": "array", "items": { "type": "string" }, "maxItems": 8 }
+          }
+        },
+        "output": {
+          "oneOf": [
+            { "type": "object", "required": ["type"], "properties": { "type": { "const": "text" } } },
+            { "type": "object", "required": ["type", "schema"], "properties": { "type": { "const": "structured" }, "schema": { "type": "object" } } }
+          ]
+        },
+        "deadline_ms": { "type": "integer", "minimum": 100, "maximum": 600000 },
+        "business": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "sse_started": {
+      "type": "object",
+      "required": ["schema", "model", "audit_id"],
+      "properties": { "schema": { "const": 1 }, "model": { "type": "string" }, "audit_id": { "type": "string" } }
+    },
+    "sse_delta": {
+      "type": "object",
+      "required": ["seq", "text", "tokens"],
+      "properties": {
+        "seq": { "type": "integer", "minimum": 0 },
+        "text": { "type": "string" },
+        "tokens": { "type": "integer", "minimum": 0 },
+        "patch": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "sse_complete": {
+      "type": "object",
+      "required": ["output", "stats"],
+      "properties": {
+        "output": {
+          "oneOf": [
+            { "type": "object", "required": ["type", "value"], "properties": { "type": { "const": "text" }, "value": { "type": "string" } } },
+            { "type": "object", "required": ["type", "value"], "properties": { "type": { "const": "structured" }, "value": {} } }
+          ]
+        },
+        "stats": {
+          "type": "object",
+          "required": ["ttft_ms", "gen_tokens", "total_ms"],
+          "properties": { "ttft_ms": { "type": "integer", "minimum": 0 }, "gen_tokens": { "type": "integer", "minimum": 0 }, "total_ms": { "type": "integer", "minimum": 0 } }
+        },
+        "confidence_bp": { "type": ["integer", "null"], "minimum": 0, "maximum": 10000 }
+      }
+    },
+    "sse_error": {
+      "type": "object",
+      "required": ["code", "kind"],
+      "properties": {
+        "code": { "type": "integer", "minimum": 1000, "maximum": 3999 },
+        "kind": { "type": "string", "pattern": "^[a-z_]+$" },
+        "retry_after_ms": { "type": ["integer", "null"], "minimum": 0 },
+        "message_id": { "type": "string", "description": "策略消息的注册制 id，不是自由文本" }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/sse_started" },
+    { "$ref": "#/$defs/sse_delta" },
+    { "$ref": "#/$defs/sse_complete" },
+    { "$ref": "#/$defs/sse_error" }
+  ]
+}

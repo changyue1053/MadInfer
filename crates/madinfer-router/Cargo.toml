@@ -1,0 +1,13 @@
+[package]
+name = "madinfer-router"
+description = "L2 路由（设计文档 C3）：(能力, 隐私标签, QoS, 档位, 可用性视图, 开关) → 有序目标链；降级链推进。全部纯函数。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+madinfer-core-types.workspace = true
+
+[lints]
+workspace = true

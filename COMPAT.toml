@@ -1,0 +1,16 @@
+# Current standalone preview; historical integration metadata is docs/legacy-COMPAT.toml.
+[madinfer]
+version = "0.1.0"
+abi_version = 2
+schema_version = 1
+[compat]
+uniffi = "0.29.4"
+requires_other_mad_sdk = false
+requires_private_repository = false
+[validated_host]
+triple = "x86_64-unknown-linux-gnu"
+rust = "1.100.0"
+[unvalidated_targets]
+android = ["aarch64-linux-android"]
+ios = ["aarch64-apple-ios", "aarch64-apple-ios-sim"]
+ohos = ["aarch64-unknown-linux-ohos"]

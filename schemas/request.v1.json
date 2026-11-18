@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mad.example/infer/request.v1.json",
+  "title": "infer request.v1",
+  "description": "infer_stream / infer_run / infer_submit 的入参（设计文档 §5.1 P1）。读者忽略未知字段（R5）；隐私标签必填、缺省不允许。",
+  "type": "object",
+  "required": ["schema", "op", "capability", "business", "input", "privacy", "budget", "output"],
+  "properties": {
+    "schema": { "const": 1 },
+    "op": { "enum": ["stream", "run", "pipeline"], "description": "与调用的函数一致，否则 4002" },
+    "capability": { "$ref": "#/$defs/capability_id" },
+    "business": { "type": "integer", "minimum": 1, "maximum": 65535, "description": "注册制；未知 → 3009" },
+    "input": { "$ref": "#/$defs/input" },
+    "privacy": { "$ref": "#/$defs/privacy" },
+    "budget": {
+      "type": "object",
+      "required": ["deadline_ms", "qos"],
+      "properties": {
+        "deadline_ms": { "type": "integer", "minimum": 100, "maximum": 600000 },
+        "qos": { "enum": ["interactive", "async", "background"] },
+        "max_memory_mb": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "output": { "$ref": "#/$defs/output_spec" },
+    "options": {
+      "type": "object",
+      "description": "只能收窄算法包 allow_override；越界 → 3009",
+      "properties": {
+        "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+        "top_p": { "type": "number", "minimum": 0, "maximum": 1 },
+        "max_tokens": { "type": "integer", "minimum": 1 },
+        "stop": { "type": "array", "items": { "type": "string" }, "maxItems": 8 },
+        "seed": { "type": "integer" }
+      }
+    },
+    "context": { "type": "string", "minLength": 1, "maxLength": 128, "description": "可选；核内 hash 后作为生成上下文（KV / 适配器）复用的键。长度口径：UTF-8 字节 1～128（核 ContextKey::new 按字节校验，超限 → 4001；KMP ContextKey 同口径）。本处 minLength / maxLength 是 JSON Schema 的字符计数，只作宽松上界——多字节文本（CJK 一字 3 字节）以字节数为准，业务拼键时按字节预判" },
+    "passthrough": { "type": "boolean", "description": "仅 op = run；零拷贝直通只准交互档" },
+    "trace": { "$ref": "#/$defs/trace" }
+  },
+  "$defs": {
+    "capability_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+    "privacy": { "enum": ["public", "internal", "e2ee_plaintext", "regulated"] },
+    "message": {
+      "type": "object",
+      "required": ["role", "content"],
+      "properties": {
+        "role": { "enum": ["system", "user", "assistant", "tool"] },
+        "content": { "type": "string" }
+      }
+    },
+    "input": {
+      "oneOf": [
+        { "type": "object", "required": ["type", "text"], "properties": { "type": { "const": "text" }, "text": { "type": "string" } } },
+        { "type": "object", "required": ["type", "messages"], "properties": { "type": { "const": "messages" }, "messages": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/message" } } } },
+        { "type": "object", "required": ["type", "buffer", "width", "height", "format"], "properties": { "type": { "const": "image" }, "buffer": { "type": "integer", "description": "infer_tensor_io 缓冲索引" }, "width": { "type": "integer" }, "height": { "type": "integer" }, "format": { "type": "string" } } },
+        { "type": "object", "required": ["type", "buffer", "sample_rate", "channels", "format"], "properties": { "type": { "const": "audio" }, "buffer": { "type": "integer" }, "sample_rate": { "type": "integer" }, "channels": { "type": "integer" }, "format": { "type": "string" } } },
+        { "type": "object", "required": ["type", "tensors"], "properties": { "type": { "const": "tensors" }, "tensors": { "type": "array", "items": { "type": "object", "required": ["name", "buffer", "dtype", "dims"], "properties": { "name": { "type": "string" }, "buffer": { "type": "integer" }, "dtype": { "enum": ["f32", "f16", "i8", "u8", "i32", "i64"] }, "dims": { "type": "array", "items": { "type": "integer" } } } } } } },
+        { "type": "object", "required": ["type", "parts"], "properties": { "type": { "const": "multi" }, "parts": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/input" } } } }
+      ]
+    },
+    "output_spec": {
+      "oneOf": [
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "text" } } },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "structured" },
+            "schema_ref": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "schema": { "type": "object", "description": "内联 JSON Schema（draft 2020-12）" }
+          },
+          "oneOf": [{ "required": ["schema_ref"] }, { "required": ["schema"] }]
+        },
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "embedding" } } },
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "labels" } } }
+      ]
+    },
+    "trace": {
+      "type": "object",
+      "required": ["trace_id", "span_id", "sampled"],
+      "properties": {
+        "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "span_id": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+        "sampled": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mad.example/infer/capabilities.v1.json",
+  "title": "infer capabilities.v1",
+  "description": "能力快照（设计文档 §5.2 P2）。version 单调递增；任一能力状态变化都 bump 并整份推送（通常 < 4 KB，不做增量）。",
+  "type": "object",
+  "required": ["schema", "version", "device_tier", "entries"],
+  "properties": {
+    "schema": { "const": 1 },
+    "version": { "type": "integer", "minimum": 0 },
+    "device_tier": { "enum": ["low", "mid", "flagship", "unknown"] },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "state", "latency"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+          "state": { "enum": ["available", "needs_download", "downloading", "unsupported", "disabled"] },
+          "source": { "enum": ["system_model", "bundled", "cloud", null] },
+          "latency": { "enum": ["fast", "normal", "slow"] },
+          "bytes": { "type": "integer", "minimum": 0, "description": "state = needs_download 时的预计下载量" },
+          "permille": { "type": "integer", "minimum": 0, "maximum": 1000, "description": "state = downloading 时的进度" },
+          "reason": { "enum": ["tier_too_low", "os_too_old", "system_model_missing", "system_model_region", "switch", "quarantined", "feature_disabled", null] },
+          "constraint": { "enum": ["none", "emulated", "native"], "description": "结构化输出支持度（madai-w08 I-C-07 G4 追加；ffi CapabilityEntryRecord.constraint 镜像）：available 时取路由到的后端 BackendCaps.constraint，否则 none；emulated = 仿真按语法生成、非真采样" }
+        }
+      }
+    }
+  }
+}

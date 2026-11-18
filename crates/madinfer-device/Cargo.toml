@@ -1,0 +1,14 @@
+[package]
+name = "madinfer-device"
+description = "C11 设备探测与分档：SoC / NPU 识别表、Tier 判定、加速器可用性。madai-w05 骨架，泳道 I-C-04 填充。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+madinfer-core-types.workspace = true
+madinfer-host.workspace = true
+
+[lints]
+workspace = true

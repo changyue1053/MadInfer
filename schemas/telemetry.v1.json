@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mad.example/infer/telemetry.v1.json",
+  "title": "infer telemetry.v1",
+  "description": "观测批次（设计文档 §5.5 P5）。字段只允许：整数、枚举、注册制 id（能力、业务、后端、包）、trace id；不存在任何可放入用户内容的字段。事件类型闭合；additionalProperties = false 是白名单门的机器可读形式。",
+  "type": "object",
+  "required": ["schema", "instance", "sdk", "tier", "os", "os_version", "events"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": 1 },
+    "instance": { "type": "string", "maxLength": 64 },
+    "sdk": { "type": "string" },
+    "tier": { "enum": ["low", "mid", "flagship", "unknown"] },
+    "os": { "enum": ["ios", "android", "ohos", "jvm"] },
+    "os_version": { "type": "string", "maxLength": 32 },
+    "events": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "required": ["t", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "t": { "type": "integer", "minimum": 0, "description": "Unix 毫秒" },
+          "type": {
+            "enum": [
+              "request_start", "request_end", "route_decision", "sched_wait", "preempt", "model_load", "model_unload",
+              "adapter_switch", "memory_pressure", "thermal_change", "asset_install", "config_apply", "config_rejected",
+              "availability_change", "consent", "error", "slow_sink", "quarantine"
+            ]
+          },
+          "trace": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+          "audit": { "type": "string", "maxLength": 64 },
+          "capability": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+          "business": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "qos": { "enum": ["interactive", "async", "background"] },
+          "privacy": { "enum": ["public", "internal", "e2ee_plaintext", "regulated"] },
+          "source": { "enum": ["system_model", "bundled", "cloud"] },
+          "chosen": { "enum": ["system_model", "bundled", "cloud"] },
+          "backend": { "type": "string", "maxLength": 64 },
+          "package": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+$" },
+          "outcome": { "enum": ["complete", "failed", "cancelled", "applied", "rejected"] },
+          "code": { "type": "integer", "minimum": 0, "maximum": 4999 },
+          "kind": { "type": "string", "pattern": "^[a-z_]+$" },
+          "reason": { "type": "string", "pattern": "^[a-z_]+$" },
+          "chain_len": { "type": "integer", "minimum": 0 },
+          "queued_ms": { "type": "integer", "minimum": 0 },
+          "ttft_ms": { "type": "integer", "minimum": 0 },
+          "total_ms": { "type": "integer", "minimum": 0 },
+          "wait_ms": { "type": "integer", "minimum": 0 },
+          "ms": { "type": "integer", "minimum": 0 },
+          "prompt_tokens": { "type": "integer", "minimum": 0 },
+          "gen_tokens": { "type": "integer", "minimum": 0 },
+          "tps_x100": { "type": "integer", "minimum": 0 },
+          "peak_memory_mb": { "type": "integer", "minimum": 0 },
+          "resident_mb": { "type": "integer", "minimum": 0 },
+          "mapped_mb": { "type": "integer", "minimum": 0 },
+          "evicted_kv_mb": { "type": "integer", "minimum": 0 },
+          "unloaded_models": { "type": "integer", "minimum": 0 },
+          "bytes": { "type": "integer", "minimum": 0 },
+          "version": { "type": "integer", "minimum": 0 },
+          "thermal": { "enum": ["nominal", "fair", "serious", "critical"] },
+          "level": { "enum": ["normal", "warning", "critical"] },
+          "admission": { "enum": ["run", "defer", "reject"] },
+          "gate": { "enum": ["charging", "idle", "thermal", "quota", "memory"] },
+          "phase": { "enum": ["map", "load", "warm", "verified", "installed", "activated"] },
+          "aot_hit": { "type": "boolean" },
+          "fallback_steps": { "type": "integer", "minimum": 0 },
+          "prefix_hit": { "type": "boolean" },
+          "cold_page_in": { "type": "boolean" },
+          "constraint": { "enum": ["native", "emulated", "none"] },
+          "adopted": { "type": ["boolean", "null"] },
+          "decision": { "enum": ["allow", "allow_remember", "deny"] },
+          "availability": { "enum": ["available", "downloading", "unavailable"] }
+        }
+      }
+    }
+  }
+}

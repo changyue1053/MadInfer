@@ -1,0 +1,15 @@
+[package]
+name = "madinfer-testkit"
+description = "替身与夹具（设计文档 C19）：ManualClock、RecordingLogger、MemoryKv、RecordingTelemetrySink、ScriptedAuthorizer、NoopBackend / FakeBackend、backend_contract_tests! 契约宏。生产 crate 只在 dev-dependencies 引用。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+madinfer-core-types.workspace = true
+madinfer-host.workspace = true
+madinfer-backend.workspace = true
+
+[lints]
+workspace = true

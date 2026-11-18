@@ -1,0 +1,21 @@
+[package]
+name = "madinfer-config"
+description = "横切 · 配置（设计文档 C14）：config.v1 文档类型、验签 / 解析 / 语义校验 / 分桶 / 原子切换 / 回滚的应用管线（FSM），向路由与调度导出快照。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+madinfer-core-types.workspace = true
+madinfer-fsm.workspace = true
+madinfer-router.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+semver.workspace = true
+
+[dependencies.xxhash-rust]
+workspace = true
+
+[lints]
+workspace = true

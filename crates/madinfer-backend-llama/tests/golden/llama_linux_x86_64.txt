@@ -1,0 +1,14 @@
+# Linux x86_64 CPU regression vector, NOT the macOS ARM reference.
+# Toolchain: Rust 1.100.0, GCC 14.2.0, CMake 4.4.5, GGML_NATIVE=OFF, CPU, greedy, one thread.
+# llama.cpp commit 91f6a6cf361385700bbe15981f0f39909df77498 (b10883).
+# model SHA256 2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d.
+# Generated once from native decoding; independently rerun by tests, no auto-update mode.
+# Not proof of model quality, semantic correctness, or cross-platform token equality.
+model_file = smollm2-135m-instruct-q4_k_m.gguf
+model_desc = llama 256M Q4_K - Medium
+llama_build = 10883
+prompt = The capital of France is
+max_tokens = 32
+prompt_tokens = 504 3575 282 4649 314
+tokens = 7042 30 7042 314 260 3995 2240 281 4649 284 260 3575 282 260 3432 6151 282 260 1142 1462 30 657 314 3807 281 260 5761 599 282 260 1798 284
+text_hex = 2050617269732e20506172697320697320746865206c617267657374206369747920696e204672616e636520616e6420746865206361706974616c206f6620746865204672656e6368206465706172746d656e74206f66207468652073616d65206e616d652e204974206973206c6f636174656420696e20746865206e6f72746865726e2070617274206f662074686520636f756e74727920616e64

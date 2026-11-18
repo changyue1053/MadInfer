@@ -1,0 +1,12 @@
+[package]
+name = "madinfer-fsm"
+description = "表驱动 FSM 内核（沿 capability-im-engine fsm/Fsm.kt 与 imlink core/fsm/fsm.h 的五条规约）：查表迁移、记录轨迹、拒绝非法事件，只做这三件事。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

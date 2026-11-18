@@ -1,0 +1,117 @@
+# cargo-deny 配置（依赖白名单门，《MadAI 产品接入计划》§8.2 supply-chain job；决策 1：MadInfer 独立仓、独立 CI）。
+# 纪律与 imcore 同一条：新增第三方 crate 必须进本文件白名单并经 CODEOWNERS 审；未列出的 crate 直接判红。
+# madai-w01 I1 白名单只含 I1～I3 会用到的 crate；后续里程碑逐个追加，不准一次性放开。
+
+[graph]
+all-features = true
+targets = [
+    { triple = "aarch64-apple-ios" },
+    { triple = "aarch64-apple-ios-sim" },
+    { triple = "aarch64-linux-android" },
+    { triple = "aarch64-unknown-linux-ohos" },
+    { triple = "aarch64-apple-darwin" },
+    { triple = "x86_64-unknown-linux-gnu" },
+]
+
+[advisories]
+version = 2
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Zlib", "Unicode-3.0", "Unicode-DFS-2016", "MPL-2.0"]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+highlight = "all"
+# 只允许下面列出的第三方 crate（allow 非空即白名单模式）；路径 crate（infer-*）不受限。
+allow = [
+    # I2 wire 层（含其传递依赖；serde 1.0.229 起拆出 serde_core，serde_json 1.0.151 的浮点格式化 crate 为 zmij）
+    { name = "serde" },
+    { name = "serde_core" },
+    { name = "serde_derive" },
+    { name = "serde_json" },
+    { name = "semver" },
+    { name = "smol_str" },
+    { name = "itoa" },
+    { name = "memchr" },
+    { name = "zmij" },
+    { name = "proc-macro2" },
+    { name = "quote" },
+    { name = "syn" },
+    { name = "unicode-ident" },
+    # I2 资产与签名
+    { name = "sha2" },
+    { name = "ed25519-dalek" },
+    { name = "aes-gcm" },
+    { name = "base64" },
+    { name = "xxhash-rust" },
+    # I2 调度与并发
+    { name = "crossbeam-channel" },
+    { name = "parking_lot" },
+    { name = "arc-swap" },
+    # I3 FFI
+    { name = "uniffi" },
+    { name = "uniffi_macros" },
+    { name = "uniffi_core" },
+    { name = "uniffi_build" },
+    { name = "uniffi_bindgen" },
+    # I-S-01 uniffi =0.29.4 传递依赖（六目标 all-features 图实测并集，cargo tree 逐目标核对；
+    # 注意：bindgen 侧闭包（askama / goblin / weedle2 …）只在 Cargo.lock 不在解析图——uniffi 的
+    # bindgen/cli feature 无工作区消费者，deny 图不含它们，故不放行；绑定生成经仓外 bindgen 宿主）
+    { name = "uniffi_meta" },              # uniffi 内部件：导出面元数据 + API checksum
+    { name = "uniffi_internal_macros" },   # uniffi 内部件：内部派生宏
+    { name = "uniffi_pipeline" },          # uniffi 内部件：元数据管线（0.29 新架构）
+    { name = "anyhow" },                   # uniffi 错误传递链
+    { name = "bytes" },                    # uniffi_core RustBuffer 读写
+    { name = "once_cell" },                # uniffi_core 静态单次初始化
+    { name = "static_assertions" },        # uniffi_core 编译期断言
+    { name = "siphasher" },                # uniffi_meta API 校验和哈希
+    { name = "camino" },                   # UTF-8 路径（uniffi / cargo_metadata）
+    { name = "cargo_metadata" },           # uniffi 默认 feature cargo-metadata：定位 crate 元数据
+    { name = "cargo-platform" },           # cargo_metadata 传递：目标三元组解析
+    { name = "thiserror" },                # cargo_metadata 传递：错误派生
+    { name = "thiserror-impl" },           # thiserror 的派生宏体
+    { name = "toml" },                     # uniffi_macros 读 uniffi.toml 配置（0.5 老版本，uniffi 钉）
+    { name = "heck" },                     # uniffi_macros 命名大小写变换
+    { name = "fs-err" },                   # uniffi_macros 带路径报错的文件读取
+    { name = "indexmap" },                 # uniffi_meta 有序映射
+    { name = "equivalent" },               # indexmap 传递：键等价 trait
+    { name = "hashbrown" },                # indexmap 传递：哈希表实现
+    { name = "tempfile" },                 # uniffi_macros 展开期临时文件
+    { name = "fastrand" },                 # tempfile 传递：临时名随机
+    { name = "getrandom" },                # fastrand 传递：系统熵源
+    { name = "rustix" },                   # tempfile 传递：系统调用安全封装
+    { name = "linux-raw-sys" },            # rustix 传递：linux 目标系统调用表（android / ohos 三元组）
+    { name = "errno" },                    # rustix 传递：errno 读取
+    { name = "libc" },                     # rustix / getrandom 传递：C 库绑定
+    { name = "bitflags" },                 # rustix 传递：位标志
+    { name = "cfg-if" },                   # getrandom 传递：条件编译分支
+    { name = "autocfg" },                  # 传递 build 探测（getrandom 等 build.rs）
+    # I3 结构化输出
+    { name = "jsonschema" },
+    # 观测
+    { name = "log" },
+]
+deny = [
+    # 禁墙钟直读：时间经 madinfer-host Clock 端口（可注入、可推进）；见设计文档 R 规则
+    { name = "chrono" },
+    # 禁 tokio：核内自建工作线程池，不引运行时
+    { name = "tokio" },
+    { name = "async-std" },
+    # 禁 reqwest / hyper：HTTP 经宿主端口
+    { name = "reqwest" },
+    { name = "hyper" },
+    { name = "openssl" },
+    { name = "openssl-sys" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mad.example/infer/eval.v1.json",
+  "title": "infer eval.v1",
+  "description": "评估用例（eval_set blob，JSON Lines 每行一个）与 infer-evalrun 报告（设计文档 §5.7 P7）。报告不含用例的输入输出原文；gate.pass 为真是配置中心接受把包写进映射表的前置条件。",
+  "$defs": {
+    "case": {
+      "type": "object",
+      "required": ["id", "input", "expect"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9-]{1,32}$" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "input": { "type": "object", "required": ["type"] },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "schema": { "type": "boolean" },
+            "references": { "type": "object", "properties": { "valid_seqs": { "type": "array", "items": { "type": "integer" } } } },
+            "contains": { "type": "array", "items": { "type": "string" } },
+            "rubric_id": { "type": "string" }
+          }
+        }
+      }
+    },
+    "report": {
+      "type": "object",
+      "required": ["schema", "package", "target", "sdk", "engine", "ran_at", "cases", "metrics", "thresholds", "gate"],
+      "properties": {
+        "schema": { "const": 1 },
+        "package": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+$" },
+        "target": {
+          "type": "object",
+          "required": ["backend", "tier"],
+          "properties": { "backend": { "type": "string" }, "tier": { "enum": ["low", "mid", "flagship"] }, "device": { "type": "string" } }
+        },
+        "sdk": { "type": "string" },
+        "engine": { "type": "string" },
+        "ran_at": { "type": "string", "format": "date-time" },
+        "cases": { "type": "integer", "minimum": 0 },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "schema_valid_bp": { "type": ["integer", "null"], "minimum": 0, "maximum": 10000 },
+            "ref_exist_bp": { "type": ["integer", "null"], "minimum": 0, "maximum": 10000 },
+            "contains_bp": { "type": ["integer", "null"], "minimum": 0, "maximum": 10000 },
+            "rubric_bp": { "type": ["integer", "null"], "minimum": 0, "maximum": 10000, "description": "云端评分服务离线填充" },
+            "ttft_p50_ms": { "type": "integer", "minimum": 0 },
+            "ttft_p95_ms": { "type": "integer", "minimum": 0 },
+            "tps_x100": { "type": "integer", "minimum": 0 },
+            "peak_memory_mb": { "type": "integer", "minimum": 0 },
+            "errors": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+          }
+        },
+        "thresholds": { "type": "object", "description": "来自 manifest.eval.thresholds" },
+        "gate": {
+          "type": "object",
+          "required": ["pass", "failed"],
+          "properties": { "pass": { "type": "boolean" }, "failed": { "type": "array", "items": { "type": "string" } } }
+        },
+        "per_case": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "string" },
+              "schema_ok": { "type": "boolean" },
+              "ref_ok": { "type": "boolean" },
+              "contains_ok": { "type": "boolean" },
+              "ttft_ms": { "type": "integer", "minimum": 0 },
+              "gen_tokens": { "type": "integer", "minimum": 0 },
+              "code": { "type": "integer" }
+            }
+          }
+        },
+        "signature": { "type": "object", "required": ["alg", "key_id", "sig"] }
+      }
+    }
+  },
+  "oneOf": [{ "$ref": "#/$defs/case" }, { "$ref": "#/$defs/report" }]
+}

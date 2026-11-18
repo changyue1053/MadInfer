@@ -1,0 +1,71 @@
+[package]
+name = "madinfer-ffi"
+description = "C17 FFI 门：UniFFI 出口、panic catch_unwind 收口、infer_abi_version；全仓唯一产 cdylib / staticlib 的 crate。madai-w06 I-CD-01：真实面（InferCore over madinfer-api 真核 + backend-llama 仿真核 + HostBridge 宿主端口）。madai-w07 I-C-06：第二面手写 C ABI（include/madinfer.h 即契约，src/cabi.rs 八符号 madinfer_* over 同一 InferCore；鸿蒙 NAPI 兜底场景，全仓唯一 unsafe 区）。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+build = "build.rs"
+
+[lib]
+# lib 名即 UniFFI namespace 与产物名：libmadinfer_ffi.{a,dylib}；符号族 uniffi_madinfer_ffi_* /
+# ffi_madinfer_ffi_* / UNIFFI_META_MADINFER_FFI_*，与 imcore 的 uniffi_im_core_uniffi_* 族无交集
+# （共存 nm 留痕见 I-S-01 报告；mad 形态下正式接线走 im-core-ffi 的 infer_door，归 I3）。
+name = "madinfer_ffi"
+# cdylib：非 mad 宿主 dlopen 形态（lane-rules 2：mad 进程内不装第二个核二进制）；
+# staticlib：iOS 壳静态链接形态；lib：cargo test 链接形态。与 im-core-ffi 同一组合。
+#
+# 作依赖时的 crate-type 门控（madai-w08 I-C-07 G7，I-CS-01 U-2）：Cargo 不支持按 feature 增减 crate-type
+# （rust-lang/cargo#4881 未定），path 依赖形态下三件都会编（deps/libmadinfer_ffi.{rlib,dylib,a}），只有 rlib 进链接。
+# 本批口径：crate-type 不动（`cargo build -p madinfer-ffi` 缺省行为、bindgen_*.sh / build_ohos.sh 全部兼容）；
+# 独立 / 依赖两形态由 feature `standalone`（缺省开）区分——它只影响 build.rs 的链接参数（16 KB 页对齐只给本 crate 自产 cdylib），
+# mad 形态 `default-features = false` 即关。若日后 mad 侧确需省掉那一次 staticlib 归档（release-slim 归档 42 MB，非阻塞），
+# 走"拆薄壳 crate"方案：本 crate 收成 lib-only，新建 madinfer-ffi-standalone（lib name 仍 madinfer_ffi，crate-type 只 cdylib/staticlib，
+# 体内 `pub use madinfer_ffi::*`）承接产物与脚本——那是 Cargo 语义下唯一能真正门控 crate-type 的形态，归总控排期。
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[features]
+default = ["standalone", "debug_script_backend"]
+# 独立产物形态（非 mad 宿主 dlopen / iOS 壳静态链接 / 鸿蒙 NAPI 兜底）：build.rs 给自产 cdylib 加 Android 16 KB 页对齐链接参数。
+# 作 im-core-ffi 的 path 依赖时关掉（最终 so 由 imcore 链，对齐参数归 imcore build.rs）。不改变 crate-type、不改变符号面。
+standalone = []
+# 调试面的脚本后端（madai-w10 I-C-09 J5-a，I-S-05 U-2）：把 madinfer-testkit 的 FakeBackend（echo_prompt 脚本）拉进 ffi 的
+# **调试构建**，`InferCore::create_debug(.., debug_script_backend = true)` / C 面 `madinfer_core_create_debug` 以它替代仿真核，
+# 三端得以确定性造出"后端产出不过 schema 校验 → 2003 携 partial"。双重门控：本 feature（缺省开，mad 形态
+# `default-features = false` 时须显式加）∧ `cfg(debug_assertions)`——`--release` 下只擦除脚本后端与两入口的函数体
+# （madai-w11 I-C-10：调试面符号两 profile 都导出，release 函数体恒 4005 FeatureDisabled，符号面 11），testkit 只留在依赖图里
+# 不进产物。关掉本 feature 时调试构建的 create_debug 对 true 回 4003。
+debug_script_backend = ["dep:madinfer-testkit"]
+# 真实 llama.cpp 引擎（madai-w17 I-C-16；缺省关）：透传 backend-llama 的同名 feature（build.rs 以系统 cmake 编 third_party/llama.cpp）。
+# 开启后 `CoreOptions.backend = Llama` 才建得出真实引擎站（关着 → 4005 FeatureDisabled，不静默回仿真核）；关着时本 crate 的
+# 符号面与代码路径同基线（`build_llama` 只剩 4005 一行）。金样用例 src/tests/llama.rs 同门控，模型经 MADINFER_LLAMA_MODEL 环境变量。
+llama-sys = ["madinfer-backend-llama/llama-sys"]
+
+[dependencies]
+# I-CD-01 真实面：对着真核建站（Core / CoreBuilder / 事件管线 / 能力索引）。
+madinfer-api.workspace = true
+# 后端抽象与请求载荷类型（Turn / GenerateOptions）。
+madinfer-backend.workspace = true
+# 确定性仿真核后端（llama-sys 缺省关不变）。
+madinfer-backend-llama.workspace = true
+madinfer-core-types.workspace = true
+# 验签 trait 与 Signature（madai-w07 F1：BridgeVerifier 把配置 / 算法包验签交给宿主 ed25519 回调）。
+madinfer-config.workspace = true
+# 宿主端口 trait（Clock / TelemetrySink / Authorizer 的 HostBridge 适配）。
+madinfer-host.workspace = true
+# 观测批次头（BatchMeta）。
+madinfer-observe.workspace = true
+# 映射表与路由目标（建站时构造能力 → 仿真核的回退链）。
+madinfer-router.workspace = true
+# 槽表（worker 池尺寸）。
+madinfer-sched.workspace = true
+# telemetry.v1 批次头字段的核内解析（过界前收进类型化 record；已在 workspace 白名单与 vendor）。
+serde_json.workspace = true
+# 版本锁定理由见根 Cargo.toml [workspace.dependencies] uniffi 行（=0.29.4，与 imcore 同源）。
+uniffi.workspace = true
+# 调试面脚本后端（feature debug_script_backend；只在 debug_assertions 构建被引用，见 [features] 注）。
+madinfer-testkit = { workspace = true, optional = true }
+
+[lints]
+workspace = true

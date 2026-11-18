@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mad.example/infer/signal.v1.json",
+  "title": "infer signal.v1",
+  "description": "宿主 → 核的资源信号（设计文档 §5.9 P9，infer_host_signal）。过去式事实；缺省全无 = 按不可知运行，后台档永不满足三门控。",
+  "oneOf": [
+    { "type": "object", "required": ["schema", "type", "state"], "properties": { "schema": { "const": 1 }, "type": { "const": "thermal" }, "state": { "enum": ["nominal", "fair", "serious", "critical"] } } },
+    { "type": "object", "required": ["schema", "type", "level_pct", "charging", "low_power_mode"], "properties": { "schema": { "const": 1 }, "type": { "const": "battery" }, "level_pct": { "type": "integer", "minimum": 0, "maximum": 100, "description": "电量百分比 0～100。未知态（madai-w09 I-C-08 / madai-w10 I-C-09 J7）：核内 madinfer-host OsSignal::Battery.level_pct 是 Option<u8>，None 原样进调度门控（不再以 100 冒充）；uniffi 面 OsSignalRecord::Battery.level_pct 传 None，C 面 madinfer_os_signal.battery_level_pct 传哨兵 MADINFER_BATTERY_LEVEL_UNKNOWN (255)。本 JSON 形态暂无未知态表达（255 不在值域、字段 required）——只改描述、结构不动；宿主经 JSON 形态投递且电量不可知时应改投 uniffi / C 面的未知态，JSON 结构加未知态归契约变更单。" }, "charging": { "type": "boolean" }, "low_power_mode": { "type": "boolean" } } },
+    { "type": "object", "required": ["schema", "type", "level"], "properties": { "schema": { "const": 1 }, "type": { "const": "memory" }, "level": { "enum": ["normal", "warning", "critical"] } } },
+    { "type": "object", "required": ["schema", "type", "state"], "properties": { "schema": { "const": 1 }, "type": { "const": "app" }, "state": { "enum": ["foreground", "background", "background_task", "terminating"] }, "budget_ms": { "type": "integer", "minimum": 0 } } },
+    { "type": "object", "required": ["schema", "type", "state"], "properties": { "schema": { "const": 1 }, "type": { "const": "network" }, "state": { "enum": ["offline", "metered", "unmetered"] } } },
+    { "type": "object", "required": ["schema", "type", "idle"], "properties": { "schema": { "const": 1 }, "type": { "const": "idle" }, "idle": { "type": "boolean" } } },
+    { "type": "object", "required": ["schema", "type", "busy"], "properties": { "schema": { "const": 1 }, "type": { "const": "main_link" }, "busy": { "type": "boolean" } } }
+  ]
+}

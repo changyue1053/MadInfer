@@ -1,0 +1,83 @@
+# MadInfer —— 端智能通用 SDK 的 Rust 内核（《端智能通用 SDK 架构设计（Rust 核心）》；mad 同级仓，形态同 imcore）。
+# 工作区约束（与 imcore 同一纪律）：单一核二进制（只有 madinfer-ffi 产 cdylib / staticlib）、panic = unwind + catch_unwind 收口在 FFI 边界、
+# 依赖白名单见 deny.toml、禁墙钟 / 禁共享锁见 clippy.toml。crate 顺序 = 设计文档 §4 的 C1～C19；按里程碑逐个加入 members。
+[workspace]
+resolver = "2"
+members = [
+    "crates/madinfer-core-types",   # C1  底座类型（I1）
+    "crates/madinfer-fsm",          # 横切 表驱动 FSM 内核（I2；沿 capability-im-engine fsm/Fsm.kt）
+    "crates/madinfer-host",         # C16 宿主端口 trait（I2）
+    "crates/madinfer-testkit",      # C19 替身（I2）
+    "crates/madinfer-router",       # C3  路由（I2）
+    "crates/madinfer-sched",        # C4  调度（I2）
+    "crates/madinfer-observe",      # C13 观测（I2）
+    "crates/madinfer-config",       # C14 配置（I2）
+    "crates/madinfer-runtime",      # C5  运行时（I2）
+    "crates/madinfer-assets",       # C10 资产（I2）
+    "crates/madinfer-api",          # C2  能力面（I2 起，Framer / 请求 FSM / 能力索引先落；I2b 核 actor + worker 池）
+    "crates/madinfer-backend",      # C6  后端抽象（I2b）
+    "crates/madinfer-backend-llama", # C7  llama.cpp 后端（W05 骨架，I-C-04 填充；llama-sys 门控缺省关）
+    "crates/madinfer-device",       # C11 设备探测与分档（W05 骨架，I-C-04 填充）
+    "crates/madinfer-preproc",      # C12 预处理（W05 骨架，I-C-04 填充）
+    "crates/madinfer-ffi",          # C17 FFI 门（W05 骨架，I-S-01 UniFFI spike）
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Proprietary"
+repository = "https://github.com/changyue1053/MadInfer"
+
+[workspace.dependencies]
+madinfer-core-types = { path = "crates/madinfer-core-types" }
+madinfer-fsm = { path = "crates/madinfer-fsm" }
+madinfer-host = { path = "crates/madinfer-host" }
+madinfer-testkit = { path = "crates/madinfer-testkit" }
+madinfer-router = { path = "crates/madinfer-router" }
+madinfer-sched = { path = "crates/madinfer-sched" }
+madinfer-observe = { path = "crates/madinfer-observe" }
+madinfer-config = { path = "crates/madinfer-config" }
+madinfer-runtime = { path = "crates/madinfer-runtime" }
+madinfer-assets = { path = "crates/madinfer-assets" }
+# I-CD-01：madinfer-ffi 对着真核建站（Core / CoreBuilder / 事件管线 / 能力索引）。
+madinfer-api = { path = "crates/madinfer-api" }
+madinfer-backend = { path = "crates/madinfer-backend" }
+madinfer-backend-llama = { path = "crates/madinfer-backend-llama" }
+madinfer-device = { path = "crates/madinfer-device" }
+madinfer-preproc = { path = "crates/madinfer-preproc" }
+madinfer-ffi = { path = "crates/madinfer-ffi" }
+# 第三方：xxh3 分桶（madai-w06 E2；云端侧同一实现对齐，deny 白名单已备）
+xxhash-rust = { version = "=0.8.18", default-features = false, features = ["xxh3"] }
+# 第三方（deny.toml 白名单内；版本取本地 registry 已缓存、imcore vendor 同源的版本）
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+semver = "1.0"
+# uniffi 精确锁定 =0.29.4（I-S-01；与 imcore im-core-ffi 同一行同一理由）：mad 侧 Gobley
+# gobley-uniffi-bindgen 0.3.7 钉死 uniffi_bindgen =0.29.4，scaffolding 与 bindgen 版本必须一致；
+# COMPAT.toml [compat].uniffi = "0.29" 由本行落实。默认 feature（cargo-metadata）随 imcore 形态保留。
+uniffi = "=0.29.4"
+
+# 工作区统一 lint：unsafe 只准出现在 madinfer-ffi 与 backend sys 边界（那两个 crate 在自己的 Cargo.toml 里放开并逐处注释不变量）；
+# 其余 crate 在 lib.rs 再加 #![forbid(unsafe_code)]。unwrap / expect 在生产代码判红，测试模块 #[allow] 放开。
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+disallowed_methods = "deny"
+disallowed_types = "deny"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "unwind"          # FFI 边界 catch_unwind 需要 unwind；abort 会带死宿主进程（R 规则：核崩溃不得连带宿主）
+strip = "symbols"
+debug = 1                 # 保留行号表供符号化崩溃栈；体积由 size budget 门盯
+
+[profile.dev]
+panic = "unwind"

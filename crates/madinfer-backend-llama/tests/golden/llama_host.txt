@@ -1,0 +1,12 @@
+# Historical macOS ARM vector; NOT validated by the Linux migration. Token/text expectations unchanged.
+# madinfer llama-sys 宿主金样（macOS arm64 · CPU · greedy · n_threads=1；madai-w16 I-C-15）
+# 任何使输出漂移的改动（tag 升版 / 采样 / 模型换档）都会在此判红，需显式换金样。
+model_file = smollm2-135m-instruct-q4_k_m.gguf
+model_desc = llama 256M Q4_K - Medium
+llama_build = 10883
+prompt = The capital of France is
+max_tokens = 32
+prompt_tokens = 504 3575 282 4649 314
+tokens = 7042 30 7042 314 253 2240 1343 327 624 2844 22387 28 984 14739 28 7317 28 43948 28 284 2517 30 657 314 260 2356 28 2536 28 284 2642 3712
+text_hex = 2050617269732e20506172697320697320612063697479206b6e6f776e20666f722069747320686973746f726963616c206c616e646d61726b732c20617274206d757365756d732c2066617368696f6e2c2067617374726f6e6f6d792c20616e642063756c747572652e2049742069732074686520706f6c69746963616c2c2065636f6e6f6d69632c20616e642063756c747572616c2063656e746572
+# text:  Paris. Paris is a city known for its historical landmarks, art museums, fashion, gastronomy, and culture. It is the political, economic, and cultural center

@@ -1,0 +1,14 @@
+[package]
+name = "madinfer-preproc"
+description = "C12 预处理：聊天模板装配（Turn → prompt 文本）、token 预算截断（Tokenizer trait + ByteTokenizer 粗估）、JSON Schema → GBNF 子集编译（SchemaCompiler）。全部纯函数、纯 std。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+madinfer-core-types.workspace = true
+madinfer-backend.workspace = true
+
+[lints]
+workspace = true

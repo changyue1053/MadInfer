@@ -1,0 +1,18 @@
+[package]
+name = "madinfer-sched"
+description = "L3 调度（设计文档 C4）：三档队列、门控、业务配额、执行槽、抢占、超时、排水。sans-io 核（SchedCore）+ 单消费者 actor（SchedulerActor）。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+madinfer-core-types.workspace = true
+madinfer-fsm.workspace = true
+madinfer-host.workspace = true
+
+[dev-dependencies]
+madinfer-testkit.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mad.example/infer/config.v1.json",
+  "title": "infer config.v1",
+  "description": "配置中心下发文档（设计文档 §5.4 P4）。应用条件：验签 ∧ schema ∧ version 递增 ∧ min_sdk ∧ 设备桶 ∈ rollout ∧ 语义校验；任一不满足整份忽略。禁区：没有任何字段能改变隐私门，when 条件不含 privacy。",
+  "type": "object",
+  "required": ["schema", "version", "issued_at", "min_sdk", "rollout", "mapping", "thresholds", "switches", "signature"],
+  "properties": {
+    "schema": { "const": 1 },
+    "version": { "type": "integer", "minimum": 1 },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "min_sdk": { "type": "string" },
+    "rollout": {
+      "type": "object",
+      "required": ["buckets"],
+      "properties": {
+        "buckets": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0, "maximum": 999 }, "description": "闭区间；1000 桶，设备桶 = xxh3(install_id) % 1000" }
+      }
+    },
+    "mapping": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["capability", "candidates"],
+        "properties": {
+          "capability": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+          "candidates": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["priority", "target", "when"],
+              "properties": {
+                "priority": { "type": "integer", "minimum": 0 },
+                "target": {
+                  "oneOf": [
+                    { "type": "object", "required": ["kind", "backend"], "properties": { "kind": { "const": "system" }, "backend": { "type": "string" } } },
+                    { "type": "object", "required": ["kind", "backend", "package"], "properties": { "kind": { "const": "bundled" }, "backend": { "type": "string" }, "package": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+$" } } },
+                    { "type": "object", "required": ["kind", "endpoint"], "properties": { "kind": { "const": "cloud" }, "endpoint": { "type": "string" } } }
+                  ]
+                },
+                "when": {
+                  "type": "object",
+                  "description": "禁止出现 privacy 字段（隐私门不受配置影响）",
+                  "properties": {
+                    "os": { "enum": ["ios", "android", "ohos", "jvm"] },
+                    "availability": { "enum": ["available"] },
+                    "tier_min": { "enum": ["low", "mid", "flagship"] },
+                    "min_os": { "type": "string" }
+                  },
+                  "not": { "required": ["privacy"] }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "properties": {
+        "tier_lines": {
+          "type": "object",
+          "additionalProperties": { "type": "object", "properties": { "ram_mb": { "type": "integer" }, "memory_bandwidth_gbps_x10": { "type": "integer" } } }
+        },
+        "confidence_min_bp": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 10000 } },
+        "deadline_ms": {
+          "type": "object",
+          "properties": {
+            "interactive": { "type": "integer", "minimum": 100 },
+            "async": { "type": "integer", "minimum": 100 },
+            "background": { "type": "integer", "minimum": 100 }
+          }
+        },
+        "frame_ms": { "type": "integer", "minimum": 16, "maximum": 500 },
+        "kv_budget_mb": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "quotas": {
+          "type": "object",
+          "additionalProperties": { "type": "object", "required": ["window_s", "cost_ms_mb"], "properties": { "window_s": { "type": "integer", "minimum": 1 }, "cost_ms_mb": { "type": "integer", "minimum": 0 } } }
+        },
+        "thermal": {
+          "type": "object",
+          "properties": {
+            "background_max": { "$ref": "#/$defs/thermal" },
+            "interactive_degrade_at": { "$ref": "#/$defs/thermal" },
+            "async_defer_at": { "$ref": "#/$defs/thermal" }
+          }
+        },
+        "gc_keep_days": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "switches": {
+      "type": "object",
+      "required": ["capabilities", "cloud_only", "all_off"],
+      "properties": {
+        "capabilities": { "type": "object", "additionalProperties": { "type": "boolean" } },
+        "cloud_only": { "type": "boolean" },
+        "all_off": { "type": "boolean" }
+      }
+    },
+    "keys": {
+      "type": "array",
+      "description": "轮换：新键由旧键签名的配置引入",
+      "items": {
+        "type": "object",
+        "required": ["key_id", "alg", "pub", "not_before"],
+        "properties": {
+          "key_id": { "type": "string" },
+          "alg": { "enum": ["ed25519"] },
+          "pub": { "type": "string" },
+          "not_before": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "required": ["alg", "key_id", "sig"],
+      "properties": { "alg": { "enum": ["ed25519"] }, "key_id": { "type": "string" }, "sig": { "type": "string" } }
+    }
+  },
+  "$defs": {
+    "thermal": { "enum": ["nominal", "fair", "serious", "critical"] }
+  }
+}

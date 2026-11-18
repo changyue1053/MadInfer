@@ -1,0 +1,29 @@
+[package]
+name = "madinfer-api"
+description = "L1 能力面（设计文档 C2）。纯逻辑：Framer 合帧、请求生命周期 FSM、CapabilityIndex 能力索引；核 actor（CoreActor + WorkerPool + 请求管线，I2b）；Infer 门面随 I3 的 ffi 一并落地。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# 依赖方向：本 crate 是能力面，聚合下层全部 crate；下层任一 crate 不得依赖 madinfer-api（无环）。
+[dependencies]
+madinfer-core-types.workspace = true
+madinfer-fsm.workspace = true
+madinfer-host.workspace = true
+madinfer-router.workspace = true
+madinfer-sched.workspace = true
+madinfer-runtime.workspace = true
+madinfer-backend.workspace = true
+madinfer-config.workspace = true
+madinfer-observe.workspace = true
+# madai-w08 G4：结构化输出——schema → GBNF 编译 + 终态校验（preproc），逐帧 JSON Patch（serde_json 已是 workspace 依赖）。
+madinfer-preproc.workspace = true
+semver.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+madinfer-testkit.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,4 @@
+# uniffi-bindgen 生成物不入库（I-S-01 任务书口径）：绑定随构建再生，命令链见 bindgen_swift.sh
+bindings/
+# 鸿蒙 staticlib 产物流不入库（I-C-06）：libmadinfer_ffi.a + 头文件拷贝随构建再生，命令链见 build_ohos.sh
+dist/

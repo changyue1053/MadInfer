@@ -1,0 +1,35 @@
+# 第三方引擎钉版（《端智能通用 SDK 架构设计（Rust 核心）》§4 C7 iminfer-backend-llama；决策 1）。
+# 纪律（madai-w16 I-C-15 改订）：引擎源码以**裁剪子树 vendor** 进本仓（third_party/llama.cpp/，仓内不放 .git、不用 submodule——
+# 离线构建纪律与 vendor/ 同一理由：冷缓存 CI 不可复现），本文件记 tag / commit / tarball sha256 / 子树清单；
+# 升版单独 PR：重跑下方「复现」步骤，附 eval 报告（eval.v1）与三端体积差。每个保留文件与上游 tarball 逐字节相同（无本地补丁）。
+
+[llama_cpp]
+repo = "https://github.com/ggml-org/llama.cpp"
+tag = "b10883"                                   # 2026-09-09T17:29Z 发布（llama.cpp 的 b<n> 系列全部标 pre-release，无另一种"稳定" tag）
+commit = "91f6a6cf361385700bbe15981f0f39909df77498"
+license = "MIT"                                  # third_party/llama.cpp/LICENSE（ggml 同仓同证）
+patches = []                                     # third_party/patches/llama.cpp/*.patch；空 = 无本地补丁
+features = ["metal", "vulkan-android", "cpu-aarch64"]   # 三端各取其一，构建脚本按 target 选；I-C-15 只落 cpu 路径
+
+[llama_cpp.vendor]
+# 来源 tarball：GitHub 自动归档（源码 tar.gz；GitHub 不承诺归档字节永久稳定，故同时记 commit 与保留树哈希）
+tarball_url = "https://github.com/ggml-org/llama.cpp/archive/refs/tags/b10883.tar.gz"
+tarball_sha256 = "809106e31c23280856379fca8285161a8c4e929d93065df4565d078facc1d90c"
+tarball_bytes = 37361722
+# 保留子树（构建 libllama + ggml CPU 后端所需最小集；上游 3569 文件 / 171,466,520 B → 373 文件 / 9,895,566 B）
+kept = [
+  "CMakeLists.txt", "LICENSE", "cmake/", "include/", "src/",
+  "ggml/CMakeLists.txt", "ggml/cmake/", "ggml/include/", "ggml/src/*.{c,cpp,h,in}", "ggml/src/CMakeLists.txt", "ggml/src/ggml-cpu/",
+  "vendor/CMakeLists.txt", "vendor/hash/",                              # 上游顶层 CMake 无条件 add_subdirectory(vendor)；hash 是 STATIC 目标须有源
+  "vendor/{miniaudio,nlohmann,sheredom,stb}/CMakeLists.txt",           # 四个 header-only INTERFACE 目标只需 CMakeLists（头文件未保留，无消费者）
+]
+# 裁掉：examples/ tests/ tools/ docs/ models/ benches/ common/ app/ pocs/ scripts/ media/ gguf-py/ conversion/ grammars/ requirements/ ci/
+#       skills/ ggml/src/ggml-{metal,blas,vulkan,cuda,opencl,sycl,hip,musa,cann,rpc,webgpu,zdnn,zendnn,hexagon,et,openvino,virtgpu}/
+#       vendor/cpp-httplib/ 与四个 header-only 库的头文件、根目录脚本（convert_*.py、build-xcframework.sh 等）。
+# I4d 回填 Metal / Vulkan 时按同一 tarball 补 ggml/src/ggml-metal/ 与 ggml/src/ggml-vulkan/（同 sha256 tarball 可复现）。
+files = 373
+bytes = 9895566
+# 保留树哈希：cd third_party/llama.cpp && find . -type f | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 256
+tree_sha256 = "6b48c4a979aa11de3018a13c176c4c648521d534afefa7c552148e89ec4a68b2"
+# 构建入口：crates/iminfer-backend-llama/csrc/CMakeLists.txt（Metal / BLAS / Accelerate / OpenMP 关，GGML_NATIVE 关，静态库）。
+

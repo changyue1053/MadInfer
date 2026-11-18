@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mad.example/infer/device.v1.json",
+  "title": "infer device.v1",
+  "description": "设备画像（设计文档 §5.8 P8）。随 config 拉取或 telemetry 批次上送；不含具体型号与任何标识符，bucket 是 install_id 的 hash 桶，不可逆。additionalProperties = false 防止画像变成指纹。",
+  "type": "object",
+  "required": ["schema", "profile_version", "os", "os_version", "model_class", "ram_mb", "tier", "bucket", "sdk", "backends", "abi"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": 1 },
+    "profile_version": { "type": "integer", "minimum": 1 },
+    "os": { "enum": ["ios", "android", "ohos", "jvm"] },
+    "os_version": { "type": "string", "maxLength": 32 },
+    "model_class": { "type": "string", "pattern": "^[a-z0-9-]+-class$", "description": "机型类，不是型号" },
+    "soc": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "vendor": { "type": "string", "maxLength": 32 }, "family": { "type": "string", "maxLength": 32 } }
+    },
+    "ram_mb": { "type": "integer", "minimum": 0 },
+    "npu": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "vendor": { "type": "string", "maxLength": 32 },
+        "api": { "enum": ["core_ai", "core_ml", "qnn", "nnapi", "aicore", "hiai", "none"] },
+        "api_version": { "type": "string", "maxLength": 16 },
+        "int8_tops_x10": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "bench": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "memory_bandwidth_gbps_x10": { "type": "integer", "minimum": 0 },
+        "cpu_int8_gops": { "type": "integer", "minimum": 0 },
+        "gpu_fp16_gflops": { "type": "integer", "minimum": 0 },
+        "llm_ref_tps_x100": { "type": "integer", "minimum": 0 },
+        "measured_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "tier": { "enum": ["low", "mid", "flagship", "unknown"] },
+    "bucket": { "type": "integer", "minimum": 0, "maximum": 999 },
+    "sdk": { "type": "string" },
+    "backends": { "type": "array", "items": { "type": "string", "maxLength": 64 } },
+    "abi": { "type": "integer", "minimum": 1 }
+  }
+}

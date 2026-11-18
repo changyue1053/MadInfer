@@ -1,0 +1,11 @@
+# 测试模型登记（madai-w16 I-C-15）。权重不入库：`bash tools/models/fetch.sh <id>` 按本文件拉到 ~/.cache/madinfer/models/<id>.gguf，
+# sha256 不符即删并 exit 1。一款一表；新增一款须带 url / sha256 / bytes / license / source 五项。
+# 选型理由（I-C-15 报告 §1）：Apache-2.0、指令模型、Q4_K_M 与设计文档 C7 口径同档（`Quant::Q4Km` 可表达）、105 MB
+# （≤ 100 MB 首选档里的 Q4_0 在 `Quant` 闭合枚举无档位，Q8_0 145 MB 更大）；量化方 bartowski（HF LFS oid = sha256）。
+
+[models.smollm2-135m-instruct-q4_k_m]
+url = "https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q4_K_M.gguf"
+sha256 = "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d"
+bytes = 105454432
+license = "Apache-2.0"
+source = "bartowski/SmolLM2-135M-Instruct-GGUF @ 09816acd（量化自 HuggingFaceTB/SmolLM2-135M-Instruct，Apache-2.0）"

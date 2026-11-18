@@ -1,0 +1,4 @@
+# MadInfer 工作区的 rustfmt 配置：与 mad-repo/imcore/rustfmt.toml 同一口径（只用 stable 选项；rust-toolchain.toml 锁 1.85）。
+# `cargo fmt --check` 是 CI fmt job 的判红依据；编辑器直接调用 rustfmt 也读本文件，两条路径同一份口径。
+edition = "2021"
+newline_style = "Unix"

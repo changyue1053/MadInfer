@@ -1,0 +1,7 @@
+# MadInfer 业务注册表（madai-w05 D5；I-E-01 反馈 ⑤）。
+# BusinessId（u16，观测 business 字段与配额归因的编号）归本仓管理；KMP 侧特性以常量对齐本表，
+# 两侧不一致由 capability-infer-api 的 KDoc 与本文件互查发现（I3 起加 gate 脚本核对）。
+# 编号纪律：0 非法（BusinessId::new 拒绝）；1～99 测试 / 仿真保留（testkit、sim.InferMain、契约用例）；100 起正式业务，只加不改不复用。
+
+[business]
+catchup = 101   # mad feature-catchup「帮我补看」会话摘要（madai-w05 起用，替换 W04 占位 BusinessId(1)）

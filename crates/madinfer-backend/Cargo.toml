@@ -1,0 +1,15 @@
+[package]
+name = "madinfer-backend"
+description = "L6 后端抽象（设计文档 C6）：Backend / Model / Context / TokenSink trait、BackendCaps、CancelToken、BackendError → InferError 映射表（§7.3）、BackendRegistry（探测缓存、连续 3 次崩溃隔离、不可变快照）。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# 只依赖 core-types 与 host（Logger 留痕）；不依赖 madinfer-api / madinfer-sched，避免环：api 依赖本 crate。
+[dependencies]
+madinfer-core-types.workspace = true
+madinfer-host.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,15 @@
+[package]
+name = "madinfer-runtime"
+description = "L4 运行时（设计文档 C5）：模型注册表（驻留 FSM、引用计数、LRU、压力逐出）、上下文池（亲和、KV 预算）。sans-io：加载 / 卸载以效果返回。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+madinfer-core-types.workspace = true
+madinfer-fsm.workspace = true
+madinfer-host.workspace = true
+
+[lints]
+workspace = true

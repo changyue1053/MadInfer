@@ -1,0 +1,18 @@
+name: standalone-sdk
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  emulated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install 1.100.0 --component rustfmt,clippy
+      - run: bash ci/verify.sh
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install 1.100.0
+      - run: MADINFER_MODEL_CACHE="$PWD/target/models" bash tools/models/fetch.sh smollm2-135m-instruct-q4_k_m
+      - run: MADINFER_LLAMA_MODEL="$PWD/target/models/smollm2-135m-instruct-q4_k_m.gguf" bash ci/native.sh

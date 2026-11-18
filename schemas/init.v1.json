@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mad.example/infer/init.v1.json",
+  "title": "infer init.v1",
+  "description": "infer_create 的入参（设计文档 §5.9 P9）：目录、设备事实、实例选项。facts 不含任何标识符；install_id 由核在 protected_dir 内自行生成与持有。",
+  "type": "object",
+  "required": ["schema", "paths", "facts", "options"],
+  "properties": {
+    "schema": { "const": 1 },
+    "paths": {
+      "type": "object",
+      "required": ["cache_dir", "protected_dir", "tmp_dir"],
+      "properties": {
+        "cache_dir": { "type": "string", "description": "可被系统清理：blob 库、AOT 缓存" },
+        "protected_dir": { "type": "string", "description": "不被清理：packages/、config、install_id、授权记忆" },
+        "tmp_dir": { "type": "string" }
+      }
+    },
+    "facts": {
+      "type": "object",
+      "required": ["os", "os_version", "ram_mb"],
+      "properties": {
+        "os": { "enum": ["ios", "android", "ohos", "jvm"] },
+        "os_version": { "type": "string", "maxLength": 32 },
+        "model_class": { "type": "string", "pattern": "^[a-z0-9-]+-class$" },
+        "soc": { "type": "object", "properties": { "vendor": { "type": "string" }, "family": { "type": "string" } } },
+        "ram_mb": { "type": "integer", "minimum": 0 },
+        "npu": { "type": "object", "properties": { "vendor": { "type": "string" }, "api": { "type": "string" }, "api_version": { "type": "string" } } }
+      }
+    },
+    "options": {
+      "type": "object",
+      "properties": {
+        "instance_name": { "type": "string", "maxLength": 64 },
+        "frame_ms": { "type": "integer", "minimum": 16, "maximum": 500 },
+        "cpu_workers": { "type": ["integer", "null"], "minimum": 1 },
+        "telemetry_sampling_bp": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "allow_cloud": { "type": "boolean" }
+      }
+    }
+  }
+}
