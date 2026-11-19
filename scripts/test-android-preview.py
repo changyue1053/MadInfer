@@ -185,4 +185,32 @@ class CargoOutDirProof(unittest.TestCase):
             a,b=self.fixtures(str(inside/'escape'/'out')); a['target_directory']=str(inside)
             with self.assertRaises(cross.ProofRejected): cross.select_out_dir(a,b,Path('/source'),inside)
 
+
+
+class RealisticCacheSyntax(unittest.TestCase):
+    def realistic(self):
+        rows=Inspectors().cache().splitlines()
+        rows=[row.replace(':STRING=',':UNINITIALIZED=') if row.startswith(('ANDROID_ABI:','ANDROID_PLATFORM:')) else row for row in rows]
+        return '# This is the CMakeCache file.\n\n' + '\n\n'.join('// No help, variable specified on the command line.\n'+row for row in rows) + '\n'
+    def test_documented_uninitialized_android_values(self):
+        cross.check_cache(self.realistic(),Path('/ndk'))
+    def test_crlf_blank_comments_and_equals_in_values(self):
+        source=self.realistic()+'\n// Other CMake value\nEXTRA:INTERNAL=a=b;c=d\n'
+        cross.check_cache(source.replace('\n','\r\n'),Path('/ndk'))
+    def test_duplicate_key_same_or_conflicting_rejected(self):
+        for value in ('arm64-v8a','x86_64'):
+            with self.assertRaises(cross.ProofRejected) as error:
+                cross.check_cache(self.realistic()+'ANDROID_ABI:UNINITIALIZED='+value+'\n',Path('/ndk'))
+            self.assertEqual(error.exception.code,'cache-key-duplicate')
+    def test_expected_values_not_trimmed_or_weakened(self):
+        for value in ('arm64-v8a ', ' arm64-v8a', 'ARM64-V8A', 'x86_64'):
+            with self.assertRaises(cross.ProofRejected) as error:
+                cross.check_cache(self.realistic().replace('=arm64-v8a','='+value),Path('/ndk'))
+            self.assertEqual(error.exception.code,'cache-option-ANDROID_ABI')
+    def test_malformed_noncomment_line_rejected(self):
+        for line in ('not a cache entry', 'ANDROID_ABI=arm64-v8a','ANDROID_ABI:STRING', ' ANDROID_ABI:STRING=arm64-v8a'):
+            with self.assertRaises(cross.ProofRejected) as error:
+                cross.check_cache(self.realistic()+line,Path('/ndk'))
+            self.assertEqual(error.exception.code,'cache-line-schema')
+
 if __name__=='__main__': unittest.main()

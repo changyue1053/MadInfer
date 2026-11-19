@@ -13,7 +13,7 @@ ENGINE_HASH = '6b48c4a979aa11de3018a13c176c4c648521d534afefa7c552148e89ec4a68b2'
 
 SAFE_CODES = frozenset(('cache-compiler', 'cache-count', 'cache-option-ANDROID_ABI', 'cache-option-ANDROID_PLATFORM', 'cache-option-ANDROID_STL', 'cache-option-GGML_ACCELERATE', 'cache-option-GGML_BLAS', 'cache-option-GGML_CPU_ARM_ARCH', 'cache-option-GGML_METAL', 'cache-option-GGML_NATIVE', 'cache-option-GGML_OPENMP', 'cache-toolchain', 'cmake-version', 'command-arguments', 'command-arm-baseline', 'command-compiler', 'command-graph-target', 'command-host-cpu', 'command-missing', 'command-option-incomplete', 'command-output-count', 'command-output-directory', 'command-override', 'command-shell-syntax', 'command-source', 'command-sysroot', 'command-target-api', 'database-json', 'database-missing', 'database-shape', 'database-size', 'entry-directory', 'entry-language', 'entry-schema', 'entry-source', 'graph-coverage', 'source-pin', 'tracked-model', 'unexpected'))
 
-SAFE_CODES = SAFE_CODES | frozenset(('cargo-metadata', 'cargo-package', 'cargo-stream', 'cargo-success', 'cargo-out-count', 'cargo-out-path', 'cargo-cache-missing'))
+SAFE_CODES = SAFE_CODES | frozenset(('cargo-metadata', 'cargo-package', 'cargo-stream', 'cargo-success', 'cargo-out-count', 'cargo-out-path', 'cargo-cache-missing', 'cache-line-schema', 'cache-key-duplicate'))
 
 class ProofRejected(ValueError):
     def __init__(self, code):
@@ -27,7 +27,19 @@ def check_cmake_version(line):
 
 
 def check_cache(text, ndk):
-    values = dict(re.findall(r'^([^#/:][^:=]*):[^=]+=(.*)$', text, re.M))
+    values = {}
+    for line in text.splitlines():
+        # CMake documentation/comments are not entries. Do not let a regexp
+        # consume a preceding newline into a key; retain exact key/value bytes.
+        if not line.strip() or line.startswith(('#', '//')):
+            continue
+        match = re.fullmatch(r'([^\s:=][^:=\r\n]*):([A-Z][A-Z_]*)=(.*)', line)
+        if match is None:
+            raise ProofRejected('cache-line-schema')
+        key, _, value = match.groups()
+        if key in values:
+            raise ProofRejected('cache-key-duplicate')
+        values[key] = value
     for key, expected in {'ANDROID_ABI':'arm64-v8a', 'ANDROID_PLATFORM':'android-24',
                           'ANDROID_STL':'c++_static', 'GGML_CPU_ARM_ARCH':'armv8-a',
                           'GGML_NATIVE':'OFF', 'GGML_METAL':'OFF', 'GGML_OPENMP':'OFF',

@@ -1,6 +1,6 @@
 # Android ARM64 native SDK packaging candidate (not runtime)
 
-Current Cargo output-discovery fix base: public 85a36f039572e36bbedeee3db5d380072a2fd8c1.
+Current cache-parser fix base: public 4ebbfb0880cb64ce9c9577b3c303c901bf8eba6a.
 Original packaging base: public 56db9979cfe3f8710a265b808178ebee3dc8506e. Its successful iOS
 synthetic execution is not evidence of Android compilation or execution.
 This candidate has not been cross-compiled locally. No Rust/CMake/Android NDK
@@ -69,7 +69,7 @@ not a distributed SDK release.
 
 ## Local evidence
 
-Twenty-five synthetic inspector tests pass, covering malformed ELF, wrong architecture,
+Thirty synthetic inspector tests pass, covering malformed ELF, wrong architecture,
 wrong ELF class/type, truncated headers, 4KiB/misaligned/W+X loads, missing loads,
 and wrong cross-toolchain settings. The 373-file engine checksum passes.
 Shell syntax, diff whitespace and public source-hygiene checks pass. Missing
@@ -190,3 +190,28 @@ symlink escape, wrong metadata source/membership/manifest, missing/failed finish
 and invalid schemas. These are not captured genuine Cargo streams and do not
 prove a successful cross-build/link of this revision. Metadata/stream payloads
 are never printed; errors remain fixed allowlisted diagnostic labels.
+
+
+## Narrow CMake cache syntax correction
+
+Exact public 4ebbfb0880cb64ce9c9577b3c303c901bf8eba6a, hosted run
+44514780911, passed native cross-build and authoritative Cargo OUT_DIR discovery,
+then reported `cache-option-ANDROID_ABI`. This revision changes only the cache
+parser and regression documentation/tests, not build tooling or compiler flags.
+
+The previous multiline regexp excluded colons/newlines inconsistently and could
+consume a preceding blank line and // documentation as part of an entry's key.
+The replacement parses one split line at a time with fullmatch, ignoring blank,
+# and // documentation lines. Typed entries (including UNINITIALIZED used for
+command-line ABI/platform values) preserve exact keys and values; CRLF is handled
+by splitlines. Values may contain equals signs. Duplicate keys, even with an
+identical value, and malformed noncomment lines reject with fixed categories.
+All expected Android ABI/platform/toolchain/CPU values are unchanged. Whitespace
+or case drift in an expected value is still a failure, never silently trimmed.
+
+Five new explicitly synthetic CMake-cache regressions cover representative
+comments/blank lines and UNINITIALIZED entries, CRLF and equals-containing
+unrelated values, duplicate ambiguity, unchanged exact-value validation and
+malformed records. Thirty total local tests pass. No hosted rerun, relocated
+consumer link or Android runtime claim is made for this revision. All existing
+final ELF16K/symbol, source/command-proof and license gates remain unchanged.
