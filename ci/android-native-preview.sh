@@ -12,6 +12,7 @@ trap finish EXIT
 # Dedicated bounded-status descriptor; detailed output remains job-local.
 : >&3
 cd "$(dirname "$0")/.."
+[[ ${MADINFER_ANDROID_APP_PREVIEW:-0} == 0 || ${MADINFER_ANDROID_APP_PREVIEW:-0} == 1 ]]
 : "${MADINFER_EXPECTED_SHA:?exact reviewed SHA required}"
 [[ $MADINFER_EXPECTED_SHA =~ ^[0-9a-f]{40}$ ]]
 [[ $(git rev-parse HEAD) == "$MADINFER_EXPECTED_SHA" && -z $(git status --porcelain) ]]
@@ -88,4 +89,8 @@ stage=consumer-link
   -lc++_static -lc++abi -ldl -lm -llog -latomic -o consumer.so)
 stage=elf-and-symbol-inspection
 python3 scripts/check-android-preview.py "$relocated/sdk" "$relocated/consumer.so" "$tools"
+if [[ ${MADINFER_ANDROID_APP_PREVIEW:-0} == 1 ]]; then
+  stage=unsigned-app-package
+  bash ci/android-app-preview.sh "$relocated/sdk" "$tools"
+fi
 printf 'PASS: Android native packaging exact SHA %s (no execution)\n' "$MADINFER_EXPECTED_SHA"

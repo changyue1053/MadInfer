@@ -1,0 +1,42 @@
+name: Android unsigned NativeActivity packaging only
+on:
+  push:
+    branches: [checkpoint/madinfer-android-app-preview]
+permissions:
+  contents: read
+concurrency:
+  group: android-native-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      RUSTUP_TOOLCHAIN: 1.100.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - name: Prepare pinned Rust only
+        run: |
+          rustup toolchain install 1.100.0 --profile minimal --no-self-update
+          rustup target add --toolchain 1.100.0 aarch64-linux-android
+          cargo fetch --locked --target aarch64-linux-android
+      - name: Cross build and relocate independent consumer (no runtime)
+        env:
+          MADINFER_EXPECTED_SHA: ${{ github.sha }}
+          CARGO_NET_OFFLINE: 'true'
+          MADINFER_ANDROID_APP_PREVIEW: '1'
+        run: |
+          python3 scripts/test-android-apk.py
+          mkdir -p build/android-native-preview-logs
+          if bash ci/android-native-preview.sh 3>&1 >build/android-native-preview-logs/package.log 2>&1; then
+            echo 'PASS: unsigned Android ARM64 APK and 16KiB native ZIP/ELF alignment; no runtime'
+          else
+            echo 'FAIL: Android native packaging; no runtime claim'
+            exit 1
+          fi
+      # No license acceptance, model downloads, signing, emulator, uploads or releases.
