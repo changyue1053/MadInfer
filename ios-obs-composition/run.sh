@@ -9,9 +9,10 @@ mkdir -p build/ios/logs
 exec >build/ios/logs/composition.log 2>&1
 trap 'printf "FAIL: %s\n" "$stage" >&3' ERR
 stage=composition-source-fixtures
-python3 ios-obs-composition/test_source.py
+python3 ios-obs-composition/source_diagnostics.py >&3
 stage=composition-orchestration-fixtures
 python3 ios-obs-composition/test_orchestration.py
+python3 ios-obs-composition/test_source_diagnostics.py
 stage=composition-execution-fixtures
 python3 ios-obs-composition/test_execution.py
 stage=composition-positive-fixtures

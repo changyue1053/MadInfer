@@ -77,7 +77,7 @@ class Tests(unittest.TestCase):
             self.assertNotIn(forbidden,source)
     def test_fixed_distinct_preparation_labels(self):
         run=(H/'run.sh').read_text()
-        steps=(('source-fixtures','python3 ios-obs-composition/test_source.py'),
+        steps=(('source-fixtures','python3 ios-obs-composition/source_diagnostics.py >&3'),
                ('orchestration-fixtures','python3 ios-obs-composition/test_orchestration.py'),
                ('execution-fixtures','python3 ios-obs-composition/test_execution.py'),
                ('positive-fixtures','python3 scripts/test-ios-positive.py'),
