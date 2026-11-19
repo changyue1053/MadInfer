@@ -31,6 +31,10 @@ jobs:
         env:
           MADINFER_EXPECTED_SHA: ${{ github.sha }}
         run: bash ci/ios-positive-preflight.sh
+      - name: Verify portable provisioning contracts without downloads
+        run: python3 ios-app-obs-demo/test_provision_cmake.py
+      - name: Provision exact official job-private CMake
+        run: python3 ios-app-obs-demo/provision_cmake.py
       - name: Original pinned tool and dependency preparation
         run: bash ios-obs-composition/prerequisites.sh
       - name: Build inspect and execute same five native tests
@@ -58,6 +62,10 @@ jobs:
         env:
           MADINFER_EXPECTED_SHA: ${{ github.sha }}
         run: bash ci/ios-positive-preflight.sh
+      - name: Verify portable provisioning contracts without downloads
+        run: python3 ios-app-obs-demo/test_provision_cmake.py
+      - name: Provision exact official job-private CMake
+        run: python3 ios-app-obs-demo/provision_cmake.py
       - name: Original pinned tool and dependency preparation
         run: bash ios-obs-composition/prerequisites.sh
       - name: Public exact optional producer only

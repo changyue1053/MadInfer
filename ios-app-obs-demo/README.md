@@ -104,3 +104,24 @@ New local orchestration tests use mocks/synthetic symbols only. No workflow was
 triggered and no artifact/native application qualification has run for this
 candidate. Actual Xcode app exports, BUNDLE_LOADER resolution and app lifecycle
 must pass independent review followed by exact hosted execution before any claim.
+
+### Pinned runner-local CMake provisioning
+
+The dedicated workflow now prepares official CMake 4.4.5 in a fresh private job
+temporary directory before the unchanged prerequisites. It retains the exact
+89,451,542-byte/SHA256 pinned Kitware universal package and all package notices.
+Only the fixed GitHub asset URL and a single HTTPS release-assets redirect are
+accepted; no credentials or environment proxy settings are sent. Full size/hash
+verification precedes decompression and execution. Archive inventory must match
+9041 members (189 dirs,8839 files,13 exact internal symlinks),252727945 file bytes.
+Names, parent directories, types, sizes, modes and every link target are validated
+before writing; only ordinary dirs/files then the exact links are created.
+
+CLI must be the exact regular0755 file in the verified package, contain arm64 and
+x86_64 Mach-O slices, and return the exact version under `/usr/bin/arch -arm64`.
+Only its bin directory is added to this job's PATH; original build checks still
+require4.4.5. No sudo, system install, license acceptance, xattr/Gatekeeper bypass,
+Homebrew modification or shared tool cache. Any unexpected condition fails with
+fixed category output. Download has byte/time bounds; no later build downloads
+are added. Real tar inventory was supplied by prior independent verification;
+local tests use synthetic archives only and do not claim actual provisioning.
