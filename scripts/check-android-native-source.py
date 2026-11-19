@@ -4,6 +4,7 @@ import hashlib
 import os
 import json
 import shlex
+import struct
 from pathlib import Path
 import re
 import sys
@@ -14,6 +15,8 @@ ENGINE_HASH = '6b48c4a979aa11de3018a13c176c4c648521d534afefa7c552148e89ec4a68b2'
 SAFE_CODES = frozenset(('cache-compiler', 'cache-count', 'cache-option-ANDROID_ABI', 'cache-option-ANDROID_PLATFORM', 'cache-option-ANDROID_STL', 'cache-option-GGML_ACCELERATE', 'cache-option-GGML_BLAS', 'cache-option-GGML_CPU_ARM_ARCH', 'cache-option-GGML_METAL', 'cache-option-GGML_NATIVE', 'cache-option-GGML_OPENMP', 'cache-toolchain', 'cmake-version', 'command-arguments', 'command-arm-baseline', 'command-compiler', 'command-graph-target', 'command-host-cpu', 'command-missing', 'command-option-incomplete', 'command-output-count', 'command-output-directory', 'command-override', 'command-shell-syntax', 'command-source', 'command-sysroot', 'command-target-api', 'database-json', 'database-missing', 'database-shape', 'database-size', 'entry-directory', 'entry-language', 'entry-schema', 'entry-source', 'graph-coverage', 'source-pin', 'tracked-model', 'unexpected'))
 
 SAFE_CODES = SAFE_CODES | frozenset(('cargo-metadata', 'cargo-package', 'cargo-stream', 'cargo-success', 'cargo-out-count', 'cargo-out-path', 'cargo-cache-missing', 'cache-line-schema', 'cache-key-duplicate'))
+
+SAFE_CODES = SAFE_CODES | frozenset(('command-vendor-pair', 'command-language-override', 'object-evidence', 'vendor-archive-built'))
 
 class ProofRejected(ValueError):
     def __init__(self, code):
@@ -58,13 +61,16 @@ def check_cache(text, ndk):
         if not compiler.is_relative_to((ndk/'toolchains/llvm/prebuilt/linux-x86_64/bin').resolve()):
             raise ProofRejected('cache-compiler')
 
-def check_commands(entries, ndk, source, build):
+def check_commands(entries, ndk, source, build, require_objects=False):
     """Read actual CMake compile commands, not templates or inferred host defaults."""
     if not isinstance(entries, list) or not 5 <= len(entries) <= 2000:
         raise ProofRejected('database-shape')
     tools = ndk/'toolchains/llvm/prebuilt/linux-x86_64'
     seen = set()
     languages = set()
+    vendor_root = (source/'third_party/llama.cpp/vendor/hash').resolve()
+    vendor_sources = {vendor_root/name for name in ('hash.cpp','xxhash/xxhash.c','sha1/sha1.c','sha256/sha256.c')}
+    sha1 = vendor_root/'sha1/sha1.c'
     for entry in entries:
         if not isinstance(entry, dict) or not isinstance(entry.get('directory'), str) or not isinstance(entry.get('file'), str):
             raise ProofRejected('entry-schema')
@@ -75,7 +81,7 @@ def check_commands(entries, ndk, source, build):
         file = (directory/file).resolve()
         if not (file.is_relative_to((source/'third_party/llama.cpp').resolve()) or file == (source/'crates/madinfer-backend-llama/csrc/madinfer_llama_bridge.c').resolve()):
             raise ProofRejected('entry-source')
-        language = 'C' if file.suffix == '.c' else 'CXX' if file.suffix in ('.cpp','.cc','.cxx') else None
+        language = 'CXX' if file == sha1 else 'C' if file.suffix == '.c' else 'CXX' if file.suffix in ('.cpp','.cc','.cxx') else None
         if language is None:
             raise ProofRejected('entry-language')
         if 'arguments' in entry:
@@ -92,7 +98,7 @@ def check_commands(entries, ndk, source, build):
         expected = tools/'bin'/('clang' if language == 'C' else 'clang++')
         if Path(args[0]).name != expected.name or Path(args[0]).resolve() != expected.resolve():
             raise ProofRejected('command-compiler')
-        if any(a.startswith(('@','-target=','-x=','-isysroot')) or a in ('-x','-arch','-m32','-m64') for a in args):
+        if any((a.startswith('-x') and a != '-x') or a.startswith(('@','-target=','-isysroot')) or a in ('-arch','-m32','-m64') for a in args):
             raise ProofRejected('command-override')
         def values(long, short=None):
             found=[]
@@ -102,6 +108,9 @@ def check_commands(entries, ndk, source, build):
                     if i+1>=len(args): raise ProofRejected('command-option-incomplete')
                     found.append(args[i+1])
             return found
+        overrides=values('-x')
+        if (file == sha1 and overrides != ['c++']) or (file != sha1 and overrides):
+            raise ProofRejected('command-language-override')
         if values('--target','-target') not in (['aarch64-none-linux-android24'],['aarch64-linux-android24']):
             raise ProofRejected('command-target-api')
         roots=values('--sysroot')
@@ -116,13 +125,24 @@ def check_commands(entries, ndk, source, build):
         if not output.is_relative_to(build.resolve()):
             raise ProofRejected('command-output-directory')
         targets=re.findall(r'CMakeFiles/([^/]+)\.dir/',output.as_posix())
-        if len(targets)!=1 or targets[0] not in {'madinfer_llama_bridge','llama','ggml','ggml-base','ggml-cpu'}:
+        if len(targets)!=1 or targets[0] not in {'madinfer_llama_bridge','llama','ggml','ggml-base','ggml-cpu','vendor-hash'}:
             raise ProofRejected('command-graph-target')
+        auxiliary = targets[0] == 'vendor-hash'
+        if auxiliary != (file in vendor_sources) or (file.is_relative_to(vendor_root) and not auxiliary):
+            raise ProofRejected('command-vendor-pair')
         if targets[0]=='ggml-cpu' and values('-march')!=['armv8-a']:
             raise ProofRejected('command-arm-baseline')
         if '-march=native' in args or any(a.startswith('-mcpu=') for a in args):
             raise ProofRejected('command-host-cpu')
-        seen.add(targets[0]); languages.add(language)
+        if not auxiliary:
+            if require_objects:
+                if not output.is_file():
+                    raise ProofRejected('object-evidence')
+                with output.open('rb') as obj:
+                    header=obj.read(20)
+                if len(header)!=20 or header[:7]!=b'\x7fELF\x02\x01\x01' or struct.unpack_from('<HH',header,16)!=(1,183):
+                    raise ProofRejected('object-evidence')
+            seen.add(targets[0]); languages.add(language)
     if seen != {'madinfer_llama_bridge','llama','ggml','ggml-base','ggml-cpu'} or languages != {'C','CXX'}:
         raise ProofRejected('graph-coverage')
 
@@ -208,7 +228,9 @@ def main():
             entries=json.loads(database.read_text())
         except (ValueError, UnicodeError):
             raise ProofRejected('database-json') from None
-        check_commands(entries,ndk,Path.cwd(),cache.parent)
+        check_commands(entries,ndk,Path.cwd(),cache.parent,require_objects=True)
+        if (cache.parent/'lib/libvendor-hash.a').exists():
+            raise ProofRejected('vendor-archive-built')
     print('PASS: pinned engine source' + (' and Android cross configuration' if len(sys.argv)>1 else ''))
 
 def cli():

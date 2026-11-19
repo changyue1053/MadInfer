@@ -39,11 +39,17 @@ def defined(nm, path, dynamic=False):
     output = subprocess.check_output(args+[str(path)], stderr=subprocess.DEVNULL, text=True)
     return {line.split()[-1] for line in output.splitlines() if len(line.split()) >= 2}
 
+def reject_vendor_hash_members(members):
+    if any(Path(member).name in {'hash.cpp.o','xxhash.c.o','sha1.c.o','sha256.c.o'} for member in members):
+        raise ValueError('Unexpected configured-only vendor hash archive member')
+
 def main():
     package, consumer, tools = map(Path, sys.argv[1:])
     archive = package/'lib/arm64-v8a/libmadinfer_ffi.a'
     if archive.read_bytes()[:8] != b'!<arch>\n':
         raise ValueError('Expected non-thin archive')
+    members=subprocess.check_output([str(tools/'llvm-ar'),'t',str(archive)],text=True).splitlines()
+    reject_vendor_hash_members(members)
     if not (REQUIRED | ENGINE) <= defined(tools/'llvm-nm', archive):
         raise ValueError('Native archive ABI/engine symbols missing')
     inspect_elf(consumer.read_bytes())

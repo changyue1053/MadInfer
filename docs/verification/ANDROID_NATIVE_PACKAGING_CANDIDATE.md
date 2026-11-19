@@ -1,6 +1,6 @@
 # Android ARM64 native SDK packaging candidate (not runtime)
 
-Current cache-parser fix base: public 4ebbfb0880cb64ce9c9577b3c303c901bf8eba6a.
+Current configured-vendor graph fix base: public d94b037ba6b007249894b7b2bcea9b528a821c13.
 Original packaging base: public 56db9979cfe3f8710a265b808178ebee3dc8506e. Its successful iOS
 synthetic execution is not evidence of Android compilation or execution.
 This candidate has not been cross-compiled locally. No Rust/CMake/Android NDK
@@ -69,7 +69,7 @@ not a distributed SDK release.
 
 ## Local evidence
 
-Thirty synthetic inspector tests pass, covering malformed ELF, wrong architecture,
+Thirty-seven synthetic inspector tests pass, covering malformed ELF, wrong architecture,
 wrong ELF class/type, truncated headers, 4KiB/misaligned/W+X loads, missing loads,
 and wrong cross-toolchain settings. The 373-file engine checksum passes.
 Shell syntax, diff whitespace and public source-hygiene checks pass. Missing
@@ -215,3 +215,36 @@ unrelated values, duplicate ambiguity, unchanged exact-value validation and
 malformed records. Thirty total local tests pass. No hosted rerun, relocated
 consumer link or Android runtime claim is made for this revision. All existing
 final ELF16K/symbol, source/command-proof and license gates remain unchanged.
+
+
+## Configured-only vendor graph versus compiled graph
+
+Public d94b037ba6b007249894b7b2bcea9b528a821c13, run 44516421362,
+reached the compile database and reported `command-graph-target`. The pinned
+engine's CMakeLists.txt:227 unconditionally configures vendor/. Its hash target
+has exactly hash.cpp, xxhash/xxhash.c, sha1/sha1.c and sha256/sha256.c. SHA1 is
+explicitly LANGUAGE CXX; the other configured vendor libraries are INTERFACE.
+CMake's compile database may include configured-but-unbuilt targets.
+
+This checker now permits only those four exact canonical source paths paired
+with exactly vendor-hash as auxiliary. SHA1 alone must use the exact clang++
+driver and a single `-x c++`; no other language override is allowed. Auxiliary
+entries still require the same exact NDK compiler, API24 target, sysroot and
+path constraints. They do not contribute to the five required main targets or
+C/C++ language coverage. Unknown targets or vendor source substitutions fail.
+The native production configuration remains unchanged; no vendor target is added
+to its build/link dependencies.
+
+For the required main graphs, every declared object must now exist and have an
+ELF64 little-endian AArch64 ET_REL header after the successful native build.
+Auxiliary objects need not exist. The gate additionally rejects creation of the
+known lib/libvendor-hash.a and rejects its four known member names in the final
+FFI static archive. This supplements, not replaces, the unchanged native symbol
+and relocated final ARM64/16KiB ELF/link checks. No actual vendor-link absence
+or final consumer success is claimed until this revision executes on the host.
+
+Seven explicitly synthetic regressions cover exact auxiliary entries, retained
+main graph coverage, source/target pairing, SHA1-only override, auxiliary
+compiler/API/sysroot rejection, required-object existence/header checks and
+vendor-member rejection. Synthetic object headers are parser fixtures only;
+they are never presented as compiled evidence. Total 37 local tests pass.

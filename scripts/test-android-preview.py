@@ -213,4 +213,67 @@ class RealisticCacheSyntax(unittest.TestCase):
                 cross.check_cache(self.realistic()+line,Path('/ndk'))
             self.assertEqual(error.exception.code,'cache-line-schema')
 
+
+
+class ConfiguredVendorGraph(unittest.TestCase):
+    def entries(self):
+        entries=CompileProof().entries()
+        for filename in ('hash.cpp','xxhash/xxhash.c','sha1/sha1.c','sha256/sha256.c'):
+            cxx=filename in ('hash.cpp','sha1/sha1.c')
+            file='/source/third_party/llama.cpp/vendor/hash/'+filename
+            args=['/ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/'+('clang++' if cxx else 'clang'),
+                  '--target=aarch64-none-linux-android24',
+                  '--sysroot=/ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot']
+            if filename=='sha1/sha1.c': args+=['-x','c++']
+            args+=['-o','vendor/hash/CMakeFiles/vendor-hash.dir/'+filename+'.o','-c',file]
+            entries.append({'directory':'/build','file':file,'arguments':args})
+        return entries
+    def verify(self, entries): CompileProof().verify(entries)
+    def test_vendor_members_rejected(self):
+        elf.reject_vendor_hash_members(['madinfer.o','ggml.c.o'])
+        for name in ('hash.cpp.o','xxhash.c.o','sha1.c.o','sha256.c.o'):
+            with self.assertRaises(ValueError): elf.reject_vendor_hash_members(['folder/'+name])
+    def test_exact_configured_auxiliary_pass(self): self.verify(self.entries())
+    def test_vendor_does_not_replace_required_graph(self):
+        with self.assertRaises(cross.ProofRejected): self.verify(self.entries()[1:])
+    def test_exact_source_target_pair_only(self):
+        for mode in ('unknown-source','wrong-target','unknown-target'):
+            entries=self.entries(); item=entries[-1]
+            if mode=='unknown-source':
+                item['file']=item['file'].replace('sha256.c','other.c')
+                item['arguments'][-1]=item['file']
+            else:
+                new='llama' if mode=='wrong-target' else 'vendor-other'
+                item['arguments']=[a.replace('vendor-hash.dir',new+'.dir') for a in item['arguments']]
+            with self.assertRaises(cross.ProofRejected): self.verify(entries)
+    def test_sha1_only_exact_cxx_override(self):
+        for mode in ('missing','c','duplicate','elsewhere','compact'):
+            entries=self.entries(); item=entries[-2]
+            if mode=='missing': item['arguments'].remove('-x'); item['arguments'].remove('c++')
+            elif mode=='c': item['arguments'][item['arguments'].index('-x')+1]='c'
+            elif mode=='duplicate': item['arguments']+=['-x','c++']
+            elif mode=='compact': entries[0]['arguments']+=['-xc++']
+            else: entries[0]['arguments']+=['-x','c++']
+            with self.assertRaises(cross.ProofRejected): self.verify(entries)
+    def test_auxiliary_still_requires_sdk_api_sysroot(self):
+        for old,new in [('android24','android23'),('/ndk/','/foreign/'),('bin/clang++','bin/clang')]:
+            entries=self.entries(); item=entries[-2]
+            item['arguments']=[a.replace(old,new) for a in item['arguments']]
+            with self.assertRaises(cross.ProofRejected): self.verify(entries)
+    def test_required_object_evidence_synthetic_headers(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp); build=root/'build'; build.mkdir()
+            entries=self.entries()
+            for item in entries: item['directory']=str(build)
+            with self.assertRaises(cross.ProofRejected): cross.check_commands(entries,Path('/ndk'),Path('/source'),build,True)
+            for item in entries[:5]:
+                obj=build/item['arguments'][item['arguments'].index('-o')+1]
+                obj.parent.mkdir(parents=True,exist_ok=True)
+                header=bytearray(20);header[:7]=b'\x7fELF\x02\x01\x01';struct.pack_into('<HH',header,16,1,183)
+                obj.write_bytes(header)
+            cross.check_commands(entries,Path('/ndk'),Path('/source'),build,True)
+            obj.write_bytes(b'not an object')
+            with self.assertRaises(cross.ProofRejected): cross.check_commands(entries,Path('/ndk'),Path('/source'),build,True)
+
 if __name__=='__main__': unittest.main()
