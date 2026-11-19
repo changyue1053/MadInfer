@@ -7,13 +7,18 @@ mode=${1:?}
 exec 3>&1
 mkdir -p build/ios/logs
 exec >build/ios/logs/composition.log 2>&1
-stage=composition-package
 trap 'printf "FAIL: %s\n" "$stage" >&3' ERR
+stage=composition-source-fixtures
 python3 ios-obs-composition/test_source.py
+stage=composition-orchestration-fixtures
 python3 ios-obs-composition/test_orchestration.py
+stage=composition-execution-fixtures
 python3 ios-obs-composition/test_execution.py
+stage=composition-positive-fixtures
 python3 scripts/test-ios-positive.py
+stage=composition-result-fixtures
 python3 scripts/test-ios-test-results.py
+stage=composition-framework-build
 bash scripts/build-ios.sh
 stage=composition-prepare
 if [[ "$mode" == on ]]; then

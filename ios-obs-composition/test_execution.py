@@ -45,16 +45,29 @@ class Tests(unittest.TestCase):
         return manifest,binary,host
     def test_selection_and_hash_changes(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);expected=self.materialize(root)
+            root=Path(tmp).resolve();expected=self.materialize(root)
             self.assertEqual(e.select(root),expected)
             before=e.snapshot(root,*expected)
             expected[1].write_bytes(b'changed')
             self.assertNotEqual(before,e.snapshot(root,*expected))
             (root/'second.xctestrun').write_bytes(expected[0].read_bytes())
             with self.assertRaises(ValueError):e.select(root)
+    def test_execution_canonicalizes_symlink_ancestor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve()
+            real=root/'real';real.mkdir()
+            alias=root/'alias';alias.symlink_to(real,target_is_directory=True)
+            products=alias/'products';products.mkdir()
+            expected=self.materialize(products)
+            canonical=tuple(p.resolve() for p in expected)
+            # execute() resolves its products argument before select/snapshot.
+            self.assertEqual(e.select(products.resolve()),canonical)
+            self.assertEqual(e.snapshot(products.resolve(),*canonical),
+                             e.snapshot(real/'products',*canonical))
+
     def test_bundle_pointer_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);manifest,_,_=self.materialize(root)
+            root=Path(tmp).resolve();manifest,_,_=self.materialize(root)
             manifest.write_bytes(plistlib.dumps(fixture(1,1)))
             with self.assertRaises(ValueError):e.select(root)
     def test_original_simulator_contract_unchanged(self):

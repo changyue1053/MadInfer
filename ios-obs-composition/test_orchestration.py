@@ -24,23 +24,36 @@ class Tests(unittest.TestCase):
                  'MadInferSmoke.app/PlugIns/MadInferSmokeTests.xctest/MadInferSmokeTests')
         for layout in layouts:
             with tempfile.TemporaryDirectory() as tmp:
-                root=Path(tmp); f=root/layout; f.parent.mkdir(parents=True); f.touch()
+                root=Path(tmp).resolve(); f=root/layout; f.parent.mkdir(parents=True); f.touch()
                 self.assertEqual(a.resolve_bundle(root),f)
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)
+            root=Path(tmp).resolve()
             with self.assertRaises(ValueError): a.resolve_bundle(root)
             for layout in layouts:
                 f=root/layout; f.parent.mkdir(parents=True); f.touch()
             with self.assertRaises(ValueError): a.resolve_bundle(root)
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp); (root/'MadInferSmokeTests.xctest').symlink_to(root/'missing')
+            root=Path(tmp).resolve(); (root/'MadInferSmokeTests.xctest').symlink_to(root/'missing')
             with self.assertRaises(ValueError): a.resolve_bundle(root)
+
+    def test_canonical_symlink_ancestor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve()
+            real=root/'real'; real.mkdir()
+            alias=root/'alias'; alias.symlink_to(real,target_is_directory=True)
+            products=alias/'products'; products.mkdir()
+            f=products/'MadInferSmokeTests.xctest/MadInferSmokeTests'
+            f.parent.mkdir();f.touch()
+            self.assertNotEqual(f,f.resolve())
+            self.assertEqual(a.resolve_bundle(products),f.resolve())
+            # A symlink at the trust root itself remains forbidden.
+            with self.assertRaises(ValueError): a.resolve_bundle(alias)
 
     def test_git_header_status_gate(self):
         script=(H/'install.sh').read_text()
         snippet=script[script.index('header_status=0'):script.index('[[ $(uname')]
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)
+            root=Path(tmp).resolve()
             subprocess.run(['git','init','-q',str(root)],check=True)
             def check():
                 return subprocess.run(['bash','-euo','pipefail','-c','producer="$1"; '+snippet,'test',str(root)],capture_output=True)
@@ -62,6 +75,18 @@ class Tests(unittest.TestCase):
         self.assertEqual(source.count('bash ci/ios-positive-preflight.sh'),2)
         for forbidden in ('upload-artifact','workflow_dispatch','pull_request_target','secrets.', 'sudo ', 'xcodebuild -license','ci/native.sh'):
             self.assertNotIn(forbidden,source)
+    def test_fixed_distinct_preparation_labels(self):
+        run=(H/'run.sh').read_text()
+        steps=(('source-fixtures','python3 ios-obs-composition/test_source.py'),
+               ('orchestration-fixtures','python3 ios-obs-composition/test_orchestration.py'),
+               ('execution-fixtures','python3 ios-obs-composition/test_execution.py'),
+               ('positive-fixtures','python3 scripts/test-ios-positive.py'),
+               ('result-fixtures','python3 scripts/test-ios-test-results.py'),
+               ('framework-build','bash scripts/build-ios.sh'))
+        for label,command in steps:
+            self.assertEqual(run.count('stage=composition-'+label),1)
+            self.assertIn('stage=composition-'+label+'\n'+command,run)
+
     def test_installed_and_removed_before_consumption(self):
         script=(H/'install.sh').read_text()
         self.assertLess(script.index('cmake --install'),script.index('rm -rf --'))
