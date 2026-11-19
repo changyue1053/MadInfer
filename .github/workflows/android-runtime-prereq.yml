@@ -1,0 +1,23 @@
+name: Android runtime prerequisites observation only
+on:
+  push:
+    branches: [checkpoint/madinfer-android-runtime-prereq]
+permissions:
+  contents: read
+jobs:
+  observe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - run: python3 scripts/test-android-runner-probe.py
+      - name: Observe current UID KVM and existing SDK only
+        env:
+          MADINFER_EXPECTED_SHA: ${{ github.sha }}
+        run: python3 scripts/probe-android-runner.py
+      # No sudo, chmod, udev, sdkmanager invocation, downloads, licenses, VM or APK.
