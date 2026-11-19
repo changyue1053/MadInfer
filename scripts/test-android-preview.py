@@ -98,4 +98,35 @@ class CompileProof(unittest.TestCase):
             else: e['arguments'].pop(1)
             with self.assertRaises(ValueError): self.verify(entries)
 
+
+
+class BoundedProofDiagnostics(unittest.TestCase):
+    def test_normal_ndk_compiler_variables_need_not_be_cached(self):
+        cache=Inspectors().cache()
+        cache='\n'.join(line for line in cache.splitlines() if not line.startswith(('CMAKE_C_COMPILER:', 'CMAKE_CXX_COMPILER:')))
+        cross.check_cache(cache,Path('/ndk'))
+        # Cache is not sufficient: the separate real-command proof stays mandatory.
+        proof=CompileProof(); proof.verify(proof.entries())
+        with self.assertRaises(cross.ProofRejected): proof.verify([])
+    def test_present_wrong_cached_compiler_still_fails(self):
+        cache=Inspectors().cache().replace('/bin/clang','/../../outside/clang')
+        with self.assertRaises(cross.ProofRejected) as error: cross.check_cache(cache,Path('/ndk'))
+        self.assertEqual(error.exception.code,'cache-compiler')
+    def test_all_fixed_reasons_emit_only_enum(self):
+        from unittest.mock import patch
+        for code in cross.SAFE_CODES:
+            with patch.object(cross,'main',side_effect=cross.ProofRejected(code)), patch.object(cross.os,'write') as write:
+                self.assertEqual(cross.cli(),1)
+                write.assert_called_once_with(3,('FAIL: android-native proof='+code+'\n').encode())
+    def test_unexpected_or_untrusted_error_never_leaks(self):
+        from unittest.mock import patch
+        for error in (ValueError('private command /secret/path'),cross.ProofRejected('private command /secret/path')):
+            with patch.object(cross,'main',side_effect=error), patch.object(cross.os,'write') as write:
+                self.assertEqual(cross.cli(),1)
+                write.assert_called_once_with(3,b'FAIL: android-native proof=unexpected\n')
+    def test_success_emits_no_failure(self):
+        from unittest.mock import patch
+        with patch.object(cross,'main'),patch.object(cross.os,'write') as write:
+            self.assertEqual(cross.cli(),0); write.assert_not_called()
+
 if __name__=='__main__': unittest.main()

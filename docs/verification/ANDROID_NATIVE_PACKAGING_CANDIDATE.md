@@ -1,6 +1,6 @@
 # Android ARM64 native SDK packaging candidate (not runtime)
 
-Current compile-proof fix base: public 7ac1de039101f89546d245a57762b86b9594b91b.
+Current bounded-diagnostic fix base: public 3ba1a4963b3049b5c89184d54abcd198720a6235.
 Original packaging base: public 56db9979cfe3f8710a265b808178ebee3dc8506e. Its successful iOS
 synthetic execution is not evidence of Android compilation or execution.
 This candidate has not been cross-compiled locally. No Rust/CMake/Android NDK
@@ -69,7 +69,7 @@ not a distributed SDK release.
 
 ## Local evidence
 
-Fourteen synthetic inspector tests pass, covering malformed ELF, wrong architecture,
+Nineteen synthetic inspector tests pass, covering malformed ELF, wrong architecture,
 wrong ELF class/type, truncated headers, 4KiB/misaligned/W+X loads, missing loads,
 and wrong cross-toolchain settings. The 373-file engine checksum passes.
 Shell syntax, diff whitespace and public source-hygiene checks pass. Missing
@@ -113,3 +113,38 @@ proof, package relocation, consumer compile/link, and ELF/symbol inspection.
 Only this fixed stage label escapes the local detailed log. No raw compiler,
 path, source, token or environment diagnostics are published. These changes still
 require exact-SHA reviewed hosted execution before any Android packaging pass.
+
+
+## Legacy NDK cache correction and bounded rejection categories
+
+Hosted public 3ba1a4963b3049b5c89184d54abcd198720a6235, run 44507962666,
+reached `actual-compile-proof` after native cross-build. This does not establish
+that the independent relocated consumer linked; that later gate was not reached.
+The exact rejection reason remains unavailable from the aggregate fixed label.
+
+The official r28c legacy toolchain defines CMAKE_C_COMPILER and CMAKE_CXX_COMPILER
+with normal `set`, not `CACHE` (lines 612–613). Compiler variables therefore need
+not exist in CMakeCache.txt. Their absence is now allowed in cache inspection;
+if present, compiler paths are still checked. This is not optional compiler
+proof: every actual compile-command entry must still use the exact pinned
+NDK driver for its C/C++ source language. All other cache options, source graph,
+Android target/API/sysroot checks, strict linked ELF/16K gates and license/tooling
+requirements remain unchanged. No local CMake executable is available to run a
+minimal toy toolchain; this finding is based on official source, not a claimed
+local CMake reproduction.
+
+Official source:
+https://android.googlesource.com/platform/ndk/+/refs/tags/ndk-r28c/build/cmake/android-legacy.toolchain.cmake
+Decoded source SHA256: a225790c91d565ee556731748d3ce1f54f9162432820067a05d2d86259c2a9a7.
+Lines 332–354 construct the ARM64/API target, 405 sets the NDK sysroot,
+426–427 set compiler-target normal variables, and 419–424 select clang/clang++.
+These declarations support the expected emitted options but are not a substitute
+for examining this run's real compile database.
+
+Every known cache/command/database rejection now has a fixed allowlisted enum
+on descriptor 3. Unknown errors become only `unexpected`; exception text,
+commands, file paths and JSON values cannot enter this diagnostic channel.
+Additional tests prove missing compiler cache entries do not remove mandatory
+command proof, wrong present cache values still fail, every fixed reason is
+bounded, unknown errors cannot leak data, and success emits no failure.
+No hosted rerun or consumer link has been performed for this correction.
