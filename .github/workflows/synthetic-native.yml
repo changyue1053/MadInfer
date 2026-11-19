@@ -1,0 +1,33 @@
+name: Synthetic native CPU qualification (not model quality)
+on:
+  push:
+    branches: [checkpoint/madinfer-synthetic-native]
+permissions:
+  contents: read
+concurrency:
+  group: synthetic-native-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      RUSTUP_TOOLCHAIN: 1.100.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - name: Prepare pinned Rust and locked crates (no model downloads)
+        run: |
+          rustup toolchain install 1.100.0 --profile minimal --component rustfmt,clippy --no-self-update
+          command -v cmake
+          cargo fetch --locked
+      - name: Structural tests and mandatory real CPU decode at this exact SHA
+        env:
+          CARGO_NET_OFFLINE: 'true'
+          MADINFER_EXPECTED_SHA: ${{ github.sha }}
+        run: bash ci/synthetic-native.sh
+      # No pretrained models, artifacts, release, production API or iOS changes.

@@ -27,3 +27,8 @@ required-features = ["llama-sys"]
 
 [lints]
 workspace = true
+
+# Isolated first-party synthetic decode qualification, never the pretrained gate.
+[[test]]
+name = "synthetic_native"
+required-features = ["llama-sys"]

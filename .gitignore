@@ -7,3 +7,7 @@ Cargo.lock.orig
 /blobs
 
 /build/
+
+# Generated first-party synthetic fixtures remain local/CI-only.
+**/*.gguf
+**/__pycache__/

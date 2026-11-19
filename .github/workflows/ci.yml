@@ -14,6 +14,10 @@ jobs:
       - run: rustup toolchain install 1.100.0 --component rustfmt,clippy
       - run: bash ci/verify.sh
   native:
+    # Synthetic qualification must never invoke the pretrained downloader, even on a PR.
+    if: >-
+      ${{ !((github.event_name == 'push' && github.ref == 'refs/heads/checkpoint/madinfer-synthetic-native') ||
+        (github.event_name == 'pull_request' && github.head_ref == 'checkpoint/madinfer-synthetic-native')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
