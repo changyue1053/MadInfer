@@ -14,11 +14,11 @@ class ResultRejected(Exception):
 def verify(summary, tests):
     if not isinstance(summary, dict) or not isinstance(tests, dict):
         raise ResultRejected('FAIL: unexpected XCTest result schema')
-    for key, expected in [('totalTestCount', 3), ('passedTests', 3), ('failedTests', 0), ('skippedTests', 0)]:
+    for key, expected in [('totalTestCount', len(EXPECTED)), ('passedTests', len(EXPECTED)), ('failedTests', 0), ('skippedTests', 0)]:
         if type(summary.get(key)) is not int:
             raise ResultRejected('FAIL: XCTest count schema mismatch')
         if summary[key] != expected:
-            raise ResultRejected('FAIL: expected exactly 3 passed, 0 failed and 0 skipped XCTest cases')
+            raise ResultRejected(f'FAIL: expected exactly {len(EXPECTED)} passed, 0 failed and 0 skipped XCTest cases')
     # Supplemental only: exact counts and named case results remain mandatory.
     # Do not infer alternate status fields/values from an absent optional field.
     if 'testStatus' in summary and not isinstance(summary['testStatus'], str):
@@ -53,7 +53,7 @@ def verify(summary, tests):
             walk(child)
     for node in roots:
         walk(node)
-    if len(found) != 3 or sorted(found) != sorted(EXPECTED):
+    if len(found) != len(EXPECTED) or sorted(found) != sorted(EXPECTED):
         raise ResultRejected('FAIL: missing, duplicated or additional XCTest case')
 
 def query(kind, path):
@@ -80,7 +80,7 @@ def main():
     # These strings come only from the fixed source allowlist, never raw result fields.
     for name in EXPECTED:
         print('PASS: MadInferSmokeTests/' + name)
-    print('PASS: XCTest total=3 passed=3 failed=0 skipped=0')
+    print(f'PASS: XCTest total={len(EXPECTED)} passed={len(EXPECTED)} failed=0 skipped=0')
 
 if __name__ == '__main__':
     try:
