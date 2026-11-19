@@ -150,3 +150,22 @@ is absent. Local test plists are explicitly synthetic structural examples, not
 captured Xcode 26.2 output. Unsupported actual generated shapes fail with the
 fixed composition-execution-reference label and require separate review, not
 fallback or relaxation. Native execution remains unrun.
+
+### Execution and prerequisite diagnostics
+
+Execution failures now emit only fixed categories through the inherited FD3:
+manifest set/format, exact host/bundle identity, platform, symbol linkage,
+closure snapshot, actual xcodebuild nonzero versus launch failure, or post-test
+change. Raw exception text, commands, paths and tool output are never relayed.
+The prerequisite helper retains the same version/target/fetch commands and
+separates fixed runner, Xcode, each SDK, CMake, Rust toolchain/targets and locked
+fetch labels. It does not install Apple tools or accept licenses.
+
+The only path acceptance addition is Apple's documented own-app host shape:
+`__TESTROOT__/Debug-iphonesimulator/MadInferSmoke.app`, in addition to the existing
+exact executable path. Both map to the same required existing executable and
+contained test bundle, with the same pre/post hashes. The app-hosted example in
+`xcodebuild.xctestrun(5)` pairs an .app host with
+`__TESTHOST__/PlugIns/MyAppTests.xctest`; the regression is a synthetic equivalent,
+not a claim to have captured the actual failing runner's manifest. Unrelated
+app names, absolute paths and traversal remain rejected.

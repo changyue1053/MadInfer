@@ -23,6 +23,10 @@ class Tests(unittest.TestCase):
             for bundle in (0,1):self.assertEqual(e.target(fixture(version,bundle)),e.BUNDLES[bundle])
         d=fixture();d['MadInferSmokeTests']['TestBundlePath']='__TESTHOST__/PlugIns/MadInferSmokeTests.xctest'
         self.assertEqual(e.target(d),e.BUNDLES[1])
+        # Documented xcodebuild.xctestrun(5) app-hosted shape, not raw CI data.
+        d['MadInferSmokeTests']['TestHostPath']='__TESTROOT__/'+e.HOST.rsplit('/',1)[0]
+        self.assertEqual(e.target(d),e.BUNDLES[1])
+
     def test_invalid_schema_modes_and_paths(self):
         cases=[]
         for value in (3,True,'2'):
@@ -31,7 +35,7 @@ class Tests(unittest.TestCase):
         d=fixture(2);d['TestConfigurations'][0]['TestTargets']*=2;cases.append(d)
         d=fixture(2);d['TestConfigurations'][0]['IsEnabled']=False;cases.append(d)
         for key,value in (('TestBundlePath','__TESTROOT__/../outside.xctest'),('TestBundlePath','/tmp/foreign.xctest'),
-                          ('TestHostPath','/tmp/foreign'),('UseDestinationArtifacts',True),('IsUITestBundle',True),
+                          ('TestHostPath','/tmp/foreign'),('TestHostPath','__TESTROOT__/Debug-iphonesimulator/Other.app'),('TestHostPath','__TESTROOT__/Debug-iphonesimulator/MadInferSmoke.app/../Other.app'),('UseDestinationArtifacts',True),('IsUITestBundle',True),
                           ('SkipTestIdentifiers',['test']),('OnlyTestIdentifiers',['test'])):
             d=fixture();d['MadInferSmokeTests'][key]=value;cases.append(d)
         for d in cases:
@@ -70,6 +74,22 @@ class Tests(unittest.TestCase):
             root=Path(tmp).resolve();manifest,_,_=self.materialize(root)
             manifest.write_bytes(plistlib.dumps(fixture(1,1)))
             with self.assertRaises(ValueError):e.select(root)
+    def test_safe_execution_categories(self):
+        examples=(('manifest-format',ValueError('manifest set'),'manifest-set'),
+                  ('manifest-format',ValueError('host identity'),'host-identity'),
+                  ('manifest-format',ValueError('bundle identity'),'bundle-identity'),
+                  ('artifact-inspection',ValueError('simulator platform proof'),'platform'),
+                  ('artifact-inspection',ValueError('off dependency'),'symbol-linkage'),
+                  ('closure-snapshot',ValueError('/secret/path'),'closure-snapshot'),
+                  ('xcodebuild-nonzero',e.subprocess.CalledProcessError(65,['secret']),'xcodebuild-nonzero'),
+                  ('xcodebuild-nonzero',FileNotFoundError('secret command'),'xcodebuild-launch'),
+                  ('post-test-delta',ValueError('artifact changed'),'post-test-delta'),
+                  ('manifest-format',RuntimeError('secret blob'),'manifest-format'))
+        for stage,error,expected in examples:
+            self.assertEqual(e.classify(stage,error),expected)
+        self.assertEqual(e.classify('secret stage',ValueError('secret')),'unexpected')
+        self.assertEqual(e.ExecutionRejected('secret').code,'unexpected')
+
     def test_original_simulator_contract_unchanged(self):
         original=(H.parent/'scripts/test-ios-positive-simulator.sh').read_text()
         isolated=(H/'simulator.sh').read_text()

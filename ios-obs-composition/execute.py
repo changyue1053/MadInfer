@@ -7,6 +7,7 @@ from pathlib import Path
 import plistlib
 import re
 import subprocess
+import os
 
 HERE=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('artifacts', HERE/'artifact_inspector.py')
@@ -39,7 +40,10 @@ def target(document):
         if t.get(flag,False) is not False: raise ValueError('unsupported target mode')
     for key in ('OnlyTestIdentifiers','SkipTestIdentifiers'):
         if t.get(key): raise ValueError('test selection override')
-    if t.get('TestHostPath')!='__TESTROOT__/'+HOST: raise ValueError('host identity')
+    # Apple app-hosted example uses the .app directory; both exact own host
+    # forms map to the same independently verified executable below.
+    allowed_hosts=('__TESTROOT__/'+HOST, '__TESTROOT__/'+HOST.rsplit('/',1)[0])
+    if t.get('TestHostPath') not in allowed_hosts: raise ValueError('host identity')
     bundle=t.get('TestBundlePath')
     if bundle=='__TESTHOST__/PlugIns/MadInferSmokeTests.xctest':
         bundle='__TESTROOT__/'+BUNDLES[1]
@@ -70,24 +74,69 @@ def snapshot(products,manifest,binary,host):
     return {p.relative_to(products).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
             for p in sorted(files)}
 
+FAILURE_CODES = {
+    'products symlink': 'manifest-set', 'manifest set': 'manifest-set',
+    'host identity': 'host-identity', 'host missing': 'host-identity',
+    'bundle identity': 'bundle-identity', 'executed bundle mismatch': 'bundle-identity',
+    'products root': 'bundle-identity', 'bundle symlink': 'bundle-identity',
+    'bundle containment': 'bundle-identity', 'bundle missing or ambiguous': 'bundle-identity',
+    'legacy platform proof': 'platform', 'simulator platform proof': 'platform',
+    'architecture': 'platform', 'artifact missing': 'artifact-inspection',
+    'off dependency': 'symbol-linkage', 'on linkage': 'symbol-linkage',
+    'dynamic obs dependency': 'symbol-linkage', 'inference linkage': 'symbol-linkage',
+}
+STAGES = frozenset(('simulator-identifier', 'manifest-format', 'artifact-inspection',
+                    'closure-snapshot', 'xcodebuild-nonzero', 'post-test-delta'))
+CODES = STAGES | frozenset(FAILURE_CODES.values()) | {'unexpected','xcodebuild-launch'}
+class ExecutionRejected(ValueError):
+    def __init__(self, code):
+        self.code=code if code in CODES else 'unexpected'
+        super().__init__(self.code)
+
+def classify(stage, error):
+    if stage not in STAGES: return 'unexpected'
+    # Never relay exception text. Compare only exact known internal literals.
+    if stage=='xcodebuild-nonzero':
+        return 'xcodebuild-nonzero' if isinstance(error,subprocess.CalledProcessError) else 'xcodebuild-launch'
+    if stage in ('post-test-delta','closure-snapshot'):
+        return stage
+    if type(error) is ValueError and len(error.args)==1 and isinstance(error.args[0],str):
+        return FAILURE_CODES.get(error.args[0],stage)
+    return stage
+
 def execute(uuid,mode,products=PRODUCTS):
-    if not re.fullmatch(r'[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}',uuid):
-        raise ValueError('simulator identifier')
-    products=products.resolve()
-    manifest,binary,host=select(products)
-    artifacts.inspect(binary,mode)
-    before=snapshot(products,manifest,binary,host)
-    subprocess.run(['xcodebuild','test-without-building','-xctestrun',str(manifest),
-                    '-destination','platform=iOS Simulator,id='+uuid,
-                    '-destination-timeout','120','-parallel-testing-enabled','NO',
-                    '-resultBundlePath','build/ios/simulator-tests.xcresult'],check=True)
-    after_manifest,after_binary,after_host=select(products)
-    if (manifest,binary,host)!=(after_manifest,after_binary,after_host) or before!=snapshot(products,manifest,binary,host):
-        raise ValueError('artifact changed')
-    artifacts.inspect(binary,mode)
+    stage='simulator-identifier'
+    try:
+        if not re.fullmatch(r'[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}',uuid):
+            raise ValueError('simulator identifier')
+        products=products.resolve()
+        stage="manifest-format"
+        manifest,binary,host=select(products)
+        stage="artifact-inspection"
+        artifacts.inspect(binary,mode)
+        stage="closure-snapshot"
+        before=snapshot(products,manifest,binary,host)
+        stage="xcodebuild-nonzero"
+        subprocess.run(['xcodebuild','test-without-building','-xctestrun',str(manifest),
+                        '-destination','platform=iOS Simulator,id='+uuid,
+                        '-destination-timeout','120','-parallel-testing-enabled','NO',
+                        '-resultBundlePath','build/ios/simulator-tests.xcresult'],check=True)
+        stage="post-test-delta"
+        after_manifest,after_binary,after_host=select(products)
+        if (manifest,binary,host)!=(after_manifest,after_binary,after_host) or before!=snapshot(products,manifest,binary,host):
+            raise ValueError('artifact changed')
+        artifacts.inspect(binary,mode)
+
+    except Exception as error:
+        raise ExecutionRejected(classify(stage,error)) from None
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('uuid');p.add_argument('mode',choices=('on','off'))
     a=p.parse_args()
     try: execute(a.uuid,a.mode)
-    except Exception: raise SystemExit('FAIL: composition-execution-reference')
+    except ExecutionRejected as error:
+        os.write(3, ('FAIL: composition-execution category='+error.code+'\n').encode('ascii'))
+        raise SystemExit(1)
+    except Exception:
+        os.write(3,b'FAIL: composition-execution category=unexpected\n')
+        raise SystemExit(1)

@@ -66,7 +66,7 @@ SUITES = {
     'execution': ('test_execution.py', 'Tests', (
         'test_bundle_pointer_mismatch', 'test_execution_canonicalizes_symlink_ancestor',
         'test_invalid_schema_modes_and_paths', 'test_original_simulator_contract_unchanged',
-        'test_selection_and_hash_changes', 'test_versions_and_layouts')),
+        'test_safe_execution_categories', 'test_selection_and_hash_changes', 'test_versions_and_layouts')),
     'diagnostics': ('test_source_diagnostics.py', 'Tests', (
         'test_count_and_success', 'test_exception_redaction_and_status',
         'test_unknown_case_and_skip')),

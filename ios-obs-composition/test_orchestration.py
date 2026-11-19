@@ -81,6 +81,15 @@ class Tests(unittest.TestCase):
         self.assertEqual(source.count('runs-on: macos-15'),2)
         self.assertEqual(source.count('persist-credentials: false'),3)
         self.assertEqual(source.count('bash ci/ios-positive-preflight.sh'),2)
+        self.assertEqual(source.count('run: bash ios-obs-composition/prerequisites.sh'),2)
+        tools=(H/'prerequisites.sh').read_text()
+        for label in ('runner-architecture','xcode','sdk-device','sdk-simulator','cmake','rust-toolchain','rust-targets','locked-fetch'):
+            self.assertEqual(tools.count('stage='+label+'\n'),1)
+        for required in ('Xcode 26.2\\nBuild version 17C52','cmake version 4.4.5',
+                         'rustup toolchain install 1.100.0 --profile minimal --no-self-update',
+                         'cargo fetch --locked --target aarch64-apple-ios --target aarch64-apple-ios-sim'):
+            self.assertIn(required,tools)
+
         for forbidden in ('upload-artifact','workflow_dispatch','pull_request_target','secrets.', 'sudo ', 'xcodebuild -license','ci/native.sh'):
             self.assertNotIn(forbidden,source)
     def test_fixed_distinct_preparation_labels(self):

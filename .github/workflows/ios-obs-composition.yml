@@ -32,17 +32,7 @@ jobs:
           MADINFER_EXPECTED_SHA: ${{ github.sha }}
         run: bash ci/ios-positive-preflight.sh
       - name: Original pinned tool and dependency preparation
-        run: |
-          bash scripts/run-preview-stage.sh apple-prerequisites bash -euo pipefail <<'STAGE'
-            test "$(uname -m)" = arm64
-            test "$(xcodebuild -version)" = $'Xcode 26.2\nBuild version 17C52'
-            test "$(xcrun --sdk iphoneos --show-sdk-version)" = 26.2
-            test "$(xcrun --sdk iphonesimulator --show-sdk-version)" = 26.2
-            test "$(cmake --version | head -n 1)" = 'cmake version 4.4.5'
-            rustup toolchain install 1.100.0 --profile minimal --no-self-update
-            rustup target add --toolchain 1.100.0 aarch64-apple-ios aarch64-apple-ios-sim
-            CARGO_NET_OFFLINE=false cargo fetch --locked --target aarch64-apple-ios --target aarch64-apple-ios-sim
-          STAGE
+        run: bash ios-obs-composition/prerequisites.sh
       - name: Build inspect and execute same five native tests
         run: bash ios-obs-composition/run.sh off
   optional-on:
@@ -69,17 +59,7 @@ jobs:
           MADINFER_EXPECTED_SHA: ${{ github.sha }}
         run: bash ci/ios-positive-preflight.sh
       - name: Original pinned tool and dependency preparation
-        run: |
-          bash scripts/run-preview-stage.sh apple-prerequisites bash -euo pipefail <<'STAGE'
-            test "$(uname -m)" = arm64
-            test "$(xcodebuild -version)" = $'Xcode 26.2\nBuild version 17C52'
-            test "$(xcrun --sdk iphoneos --show-sdk-version)" = 26.2
-            test "$(xcrun --sdk iphonesimulator --show-sdk-version)" = 26.2
-            test "$(cmake --version | head -n 1)" = 'cmake version 4.4.5'
-            rustup toolchain install 1.100.0 --profile minimal --no-self-update
-            rustup target add --toolchain 1.100.0 aarch64-apple-ios aarch64-apple-ios-sim
-            CARGO_NET_OFFLINE=false cargo fetch --locked --target aarch64-apple-ios --target aarch64-apple-ios-sim
-          STAGE
+        run: bash ios-obs-composition/prerequisites.sh
       - name: Public exact optional producer only
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
