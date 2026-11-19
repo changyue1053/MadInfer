@@ -1,0 +1,4 @@
+framework module MadInfer {
+  umbrella header "madinfer.h"
+  export *
+}

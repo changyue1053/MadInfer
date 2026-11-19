@@ -1,0 +1,12 @@
+_madinfer_abi_version
+_madinfer_apply_config
+_madinfer_backend_kind
+_madinfer_core_create
+_madinfer_core_create_with_backend
+_madinfer_core_destroy
+_madinfer_drop_contexts
+_madinfer_host_reply
+_madinfer_probe
+_madinfer_signal
+_madinfer_stream_cancel
+_madinfer_stream_start

@@ -1,5 +1,9 @@
 name: standalone-sdk
-on: [push, pull_request]
+on:
+  push:
+    # This isolated no-model integration branch has its own verification workflow.
+    branches-ignore: [checkpoint/madinfer-ios-native-preview]
+  pull_request:
 permissions:
   contents: read
 jobs:
