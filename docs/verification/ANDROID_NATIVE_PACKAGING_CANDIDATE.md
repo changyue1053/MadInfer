@@ -1,6 +1,7 @@
 # Android ARM64 native SDK packaging candidate (not runtime)
 
-Base: public 56db9979cfe3f8710a265b808178ebee3dc8506e. Its successful iOS
+Current compile-proof fix base: public 7ac1de039101f89546d245a57762b86b9594b91b.
+Original packaging base: public 56db9979cfe3f8710a265b808178ebee3dc8506e. Its successful iOS
 synthetic execution is not evidence of Android compilation or execution.
 This candidate has not been cross-compiled locally. No Rust/CMake/Android NDK
 is installed in the current workspace. Actual qualification requires independent
@@ -36,7 +37,7 @@ Rust 1.100.0 targets `aarch64-linux-android`, API24, using NDK's explicit
 existing backend build.rs Android branch to arm64-v8a / android-24 /
 c++_static / armv8-a. CPU-only backend flags and the exact 373-file engine
 source checksum are verified. Post-build inspection requires exactly one
-engine CMake cache, pinned NDK C/C++ compiler paths and compiler-target metadata,
+engine CMake cache, pinned NDK C/C++ compiler paths and actual exported compile commands,
 API24, ARM baseline flags and disabled native-machine specialization. A schema
 or toolchain mismatch fails, rather than assuming the correct target.
 
@@ -68,9 +69,47 @@ not a distributed SDK release.
 
 ## Local evidence
 
-Eight synthetic inspector tests pass, covering malformed ELF, wrong architecture,
+Fourteen synthetic inspector tests pass, covering malformed ELF, wrong architecture,
 wrong ELF class/type, truncated headers, 4KiB/misaligned/W+X loads, missing loads,
 and wrong cross-toolchain settings. The 373-file engine checksum passes.
 Shell syntax, diff whitespace and public source-hygiene checks pass. Missing
 or wrong candidate SHA rejects before installation. No Android/native compile,
 ELF artifact inspection, consumer link, APK or device execution has occurred.
+
+
+## Compile-proof correction, not a successful hosted rerun
+
+Public run 44498092437 on exact 7ac1de039101f89546d245a57762b86b9594b91b
+reports failure only in the aggregate cross-build/relocation step. The public
+bounded log contains the generic failure label, not the hidden package log or
+an exact underlying error. Therefore we cannot claim its actual failure occurred
+at the compiler-target checker. Independently, that checker has a source-proven
+defect: CMake v3.22.1's C and CXX compiler templates do not serialize
+CMAKE_*_COMPILER_TARGET. Requiring that field is not valid target evidence:
+
+- https://github.com/Kitware/CMake/blob/v3.22.1/Modules/CMakeCCompiler.cmake.in
+- https://github.com/Kitware/CMake/blob/v3.22.1/Modules/CMakeCXXCompiler.cmake.in
+- https://cmake.org/cmake/help/v3.22/envvar/CMAKE_EXPORT_COMPILE_COMMANDS.html
+
+The packaging invocation now explicitly exports CMAKE_EXPORT_COMPILE_COMMANDS=ON
+without modifying the production build scripts. After the actual Cargo native
+build succeeds, the checker requires the database from that sole engine build.
+Every entry must use the exact pinned NDK clang/clang++ driver for its declared
+C/C++ source language, one exact aarch64 Android API24 target, pinned sysroot,
+source within the real bridge/vendored graph, and an output in the actual build.
+All five native targets and both languages must be present. CPU commands must
+use exactly armv8-a; hidden response files, conflicting target/sysroot flags,
+language overrides, host CPU specialization and foreign outputs fail closed.
+The final archive-symbol, relocated consumer and strict ELF gates are unchanged.
+
+The six additional compile-command tests use explicitly synthetic databases,
+covering arguments and shell-command representations plus missing targets,
+wrong API/architecture/compiler/sysroot/language, hidden/conflicting flags and
+foreign sources/objects. They are parser tests, not genuine compilation evidence.
+
+Fixed failure stage labels now distinguish preflight, SDK prerequisites/install,
+toolchain identity, source/inspector checks, native cross build, actual compile
+proof, package relocation, consumer compile/link, and ELF/symbol inspection.
+Only this fixed stage label escapes the local detailed log. No raw compiler,
+path, source, token or environment diagnostics are published. These changes still
+require exact-SHA reviewed hosted execution before any Android packaging pass.

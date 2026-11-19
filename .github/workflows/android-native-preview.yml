@@ -31,7 +31,7 @@ jobs:
           CARGO_NET_OFFLINE: 'true'
         run: |
           mkdir -p build/android-native-preview-logs
-          if bash ci/android-native-preview.sh >build/android-native-preview-logs/package.log 2>&1; then
+          if bash ci/android-native-preview.sh 3>&1 >build/android-native-preview-logs/package.log 2>&1; then
             echo 'PASS: Android ARM64 native archive and relocated C link; no runtime'
           else
             echo 'FAIL: Android native packaging; no runtime claim'
