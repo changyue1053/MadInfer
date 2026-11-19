@@ -1,0 +1,74 @@
+name: App-owned iOS optional observation demo
+on:
+  push:
+    branches: [checkpoint/madinfer-ios-app-obs-demo]
+permissions:
+  contents: read
+concurrency:
+  group: ios-app-obs-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  standalone-off:
+    name: App-owned iOS native five optional-off
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+      RUSTUP_TOOLCHAIN: 1.100.0
+      CARGO_NET_OFFLINE: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - name: Exact original preflight
+        env:
+          MADINFER_EXPECTED_SHA: ${{ github.sha }}
+        run: bash ci/ios-positive-preflight.sh
+      - name: Original pinned tool and dependency preparation
+        run: bash ios-obs-composition/prerequisites.sh
+      - name: Build inspect and execute same five native tests
+        run: bash ios-app-obs-demo/run.sh off
+  optional-on:
+    name: App-owned iOS native five optional-on
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+      RUSTUP_TOOLCHAIN: 1.100.0
+      CARGO_NET_OFFLINE: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - name: Exact original preflight
+        env:
+          MADINFER_EXPECTED_SHA: ${{ github.sha }}
+        run: bash ci/ios-positive-preflight.sh
+      - name: Original pinned tool and dependency preparation
+        run: bash ios-obs-composition/prerequisites.sh
+      - name: Public exact optional producer only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: changyue1053/MadObs
+          ref: 4af77ffa464a48307e5ff2d95f10b835919d205b
+          path: build/ios/obs-producer
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - name: Build inspect and execute same five native tests
+        run: bash ios-app-obs-demo/run.sh on
