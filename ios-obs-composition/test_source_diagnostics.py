@@ -28,4 +28,12 @@ class Tests(unittest.TestCase):
         self.assertEqual(d.render(result),(False,['FAIL: source-fixture category=case-count']))
         result.testsRun=6
         self.assertEqual(d.render(result),(True,['PASS: composition-source-fixtures']))
+        for name,(_,_,cases) in d.SUITES.items():
+            result=d.FixedResult(cases,name)
+            self.assertFalse(d.render(result)[0])
+            result.testsRun=len(cases)
+            self.assertEqual(d.render(result),(True,['PASS: composition-'+name+'-fixtures']))
+            result.testsRun+=1
+            self.assertFalse(d.render(result)[0])
+
 if __name__=='__main__':unittest.main()

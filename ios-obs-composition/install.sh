@@ -35,7 +35,7 @@ cmake -S "$producer" -B "$work" -G Xcode \
   -DZLIB_INCLUDE_DIR="$sdkroot/usr/include" -DZLIB_LIBRARY="$sdkroot/usr/lib/libz.tbd"
 cmake --build "$work" --config Release --target imobs_core --parallel 3
 cmake --install "$work" --config Release
-python3 ios-obs-composition/inspect.py --mode on --archive "$stage/lib/libmadobs_runtime.a"
+python3 ios-obs-composition/artifact_inspector.py --mode on --archive "$stage/lib/libmadobs_runtime.a"
 # Relocate only the archive and public headers, not CMake build metadata.
 python3 - <<'PYRELOCATE'
 from pathlib import Path

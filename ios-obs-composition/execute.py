@@ -9,7 +9,7 @@ import re
 import subprocess
 
 HERE=Path(__file__).resolve().parent
-spec=importlib.util.spec_from_file_location('artifacts', HERE/'inspect.py')
+spec=importlib.util.spec_from_file_location('artifacts', HERE/'artifact_inspector.py')
 artifacts=importlib.util.module_from_spec(spec);spec.loader.exec_module(artifacts)
 PRODUCTS=Path('build/ios/simulator-consumer/Build/Products')
 HOST='Debug-iphonesimulator/MadInferSmoke.app/MadInferSmoke'

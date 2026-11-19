@@ -5,10 +5,18 @@ from pathlib import Path
 import unittest
 import tempfile
 import subprocess
+import sys
 H=Path(__file__).resolve().parent
-spec=importlib.util.spec_from_file_location('artifact',H/'inspect.py')
+spec=importlib.util.spec_from_file_location('artifact',H/'artifact_inspector.py')
 a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
 class Tests(unittest.TestCase):
+    def test_stdlib_inspect_not_shadowed(self):
+        # Direct script invocation prepends this directory; use the same search
+        # path and require standard helpers, not our Apple artifact inspector.
+        code="import inspect; assert callable(inspect.signature); assert callable(inspect.iscoroutinefunction); assert str(inspect.signature(lambda x: x)) == '(x)'"
+        result=subprocess.run([sys.executable,'-c',code],cwd=H,capture_output=True)
+        self.assertEqual(result.returncode,0,'stdlib inspect unavailable')
+
     def test_simulator_platform(self):
         a.platform(' cmd LC_BUILD_VERSION\n platform 7\n cmd LC_BUILD_VERSION\n platform IOSSIMULATOR\n')
         for text in ('', ' platform 2\n', ' platform 7\n platform 2\n', 'LC_VERSION_MIN_IPHONEOS\n platform 7\n'):
@@ -78,8 +86,8 @@ class Tests(unittest.TestCase):
     def test_fixed_distinct_preparation_labels(self):
         run=(H/'run.sh').read_text()
         steps=(('source-fixtures','python3 ios-obs-composition/source_diagnostics.py >&3'),
-               ('orchestration-fixtures','python3 ios-obs-composition/test_orchestration.py'),
-               ('execution-fixtures','python3 ios-obs-composition/test_execution.py'),
+               ('orchestration-fixtures','python3 ios-obs-composition/source_diagnostics.py orchestration >&3'),
+               ('execution-fixtures','python3 ios-obs-composition/source_diagnostics.py execution >&3'),
                ('positive-fixtures','python3 scripts/test-ios-positive.py'),
                ('result-fixtures','python3 scripts/test-ios-test-results.py'),
                ('framework-build','bash scripts/build-ios.sh'))

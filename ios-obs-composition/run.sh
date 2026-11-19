@@ -11,10 +11,10 @@ trap 'printf "FAIL: %s\n" "$stage" >&3' ERR
 stage=composition-source-fixtures
 python3 ios-obs-composition/source_diagnostics.py >&3
 stage=composition-orchestration-fixtures
-python3 ios-obs-composition/test_orchestration.py
-python3 ios-obs-composition/test_source_diagnostics.py
+python3 ios-obs-composition/source_diagnostics.py orchestration >&3
+python3 ios-obs-composition/source_diagnostics.py diagnostics >&3
 stage=composition-execution-fixtures
-python3 ios-obs-composition/test_execution.py
+python3 ios-obs-composition/source_diagnostics.py execution >&3
 stage=composition-positive-fixtures
 python3 scripts/test-ios-positive.py
 stage=composition-result-fixtures
@@ -36,14 +36,14 @@ env -u SDKROOT xcodebuild -project build/ios/positive-consumer/MadInferSmoke.xco
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO build-for-testing
 stage=composition-symbols
 products=build/ios/simulator-consumer/Build/Products/Debug-iphonesimulator
-python3 ios-obs-composition/inspect.py --mode "$mode" --resolve-bundle "$products"
+python3 ios-obs-composition/artifact_inspector.py --mode "$mode" --resolve-bundle "$products"
 if [[ "$mode" == off ]]; then
   # The framework and app must also contain no Obs dependency. They do not
   # necessarily depend on the framework dynamically (Swift app may not use it).
   for binary in \
     build/ios/simulator-consumer/Build/Products/Debug-iphonesimulator/MadInferSmoke.app/MadInferSmoke \
     build/ios/simulator-consumer/Build/Products/Debug-iphonesimulator/MadInferSmoke.app/Frameworks/MadInfer.framework/MadInfer; do
-    python3 ios-obs-composition/inspect.py --mode off --standalone-binary "$binary"
+    python3 ios-obs-composition/artifact_inspector.py --mode off --standalone-binary "$binary"
   done
 fi
 stage=composition-native-five
