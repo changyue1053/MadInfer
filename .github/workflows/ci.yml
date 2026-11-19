@@ -16,8 +16,8 @@ jobs:
   native:
     # Synthetic qualification must never invoke the pretrained downloader, even on a PR.
     if: >-
-      ${{ !((github.event_name == 'push' && (github.ref == 'refs/heads/checkpoint/madinfer-synthetic-native' || github.ref == 'refs/heads/checkpoint/madinfer-ios-synthetic-positive')) ||
-        (github.event_name == 'pull_request' && (github.head_ref == 'checkpoint/madinfer-synthetic-native' || github.head_ref == 'checkpoint/madinfer-ios-synthetic-positive'))) }}
+      ${{ !((github.event_name == 'push' && (github.ref == 'refs/heads/checkpoint/madinfer-synthetic-native' || github.ref == 'refs/heads/checkpoint/madinfer-ios-synthetic-positive' || github.ref == 'refs/heads/checkpoint/madinfer-android-native-preview')) ||
+        (github.event_name == 'pull_request' && (github.head_ref == 'checkpoint/madinfer-synthetic-native' || github.head_ref == 'checkpoint/madinfer-ios-synthetic-positive' || github.head_ref == 'checkpoint/madinfer-android-native-preview'))) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

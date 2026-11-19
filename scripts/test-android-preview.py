@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+"""Synthetic inspector tests; no ELF execution or Android build evidence."""
+import importlib.util
+from pathlib import Path
+import struct
+import unittest
+
+def module(name, file):
+    spec=importlib.util.spec_from_file_location(name,Path(__file__).with_name(file))
+    result=importlib.util.module_from_spec(spec); spec.loader.exec_module(result); return result
+elf=module('elf','check-android-preview.py')
+cross=module('cross','check-android-native-source.py')
+
+def fixture():
+    data=bytearray(120); data[:7]=b'\x7fELF\x02\x01\x01'
+    struct.pack_into('<HH',data,16,3,183); struct.pack_into('<Q',data,32,64)
+    struct.pack_into('<HH',data,54,56,1)
+    struct.pack_into('<IIQQQQQQ',data,64,1,5,0,0,0,120,120,16384)
+    return data
+
+class Inspectors(unittest.TestCase):
+    def test_sdk_cmake_version(self):
+        for line in ('cmake version 3.22.1', 'cmake version 3.22.1\n',
+                     'cmake version 3.22.1-g123abcd', 'cmake version 3.22.1-g123abcd\r\n'):
+            cross.check_cmake_version(line)
+    def test_sdk_cmake_version_rejects_drift(self):
+        for line in ('cmake version 3.22.10', 'cmake version 3.22.1-arbitrary',
+                     'cmake version 3.22.1-gxyz', 'cmake version 3.22.1-g123',
+                     'cmake version 3.22.1-g'+'a'*41, 'cmake version 3.22.1-extra\r\n',
+                     'cmake version 3.22.1\nextra', 'prefix cmake version 3.22.1',
+                     'cmake version 3.22.1 ', 'cmake version 3.22.2'):
+            with self.assertRaises(ValueError): cross.check_cmake_version(line)
+    def test_arm64_load(self): elf.inspect_elf(fixture())
+    def test_wrong_arch_kind_or_magic(self):
+        for offset,fmt,value in [(0,'B',0),(4,'B',1),(16,'H',2),(18,'H',62),(54,'H',32),(56,'H',0)]:
+            data=fixture(); struct.pack_into('<'+fmt,data,offset,value)
+            with self.assertRaises(ValueError): elf.inspect_elf(data)
+    def test_alignment_bounds_permissions(self):
+        for offset,fmt,value in [(112,'Q',4096),(112,'Q',16385),(80,'Q',1),(96,'Q',121),(104,'Q',100),(68,'I',7),(64,'I',0)]:
+            data=fixture(); struct.pack_into('<'+fmt,data,offset,value)
+            with self.assertRaises(ValueError): elf.inspect_elf(data)
+    def test_truncated(self):
+        for size in (0,6,63,119):
+            with self.assertRaises(ValueError): elf.inspect_elf(fixture()[:size])
+    def cache(self):
+        options={'ANDROID_ABI':'arm64-v8a','ANDROID_PLATFORM':'android-24','ANDROID_STL':'c++_static','GGML_CPU_ARM_ARCH':'armv8-a','GGML_NATIVE':'OFF','GGML_METAL':'OFF','GGML_OPENMP':'OFF','GGML_ACCELERATE':'OFF','GGML_BLAS':'OFF','CMAKE_TOOLCHAIN_FILE':'/ndk/build/cmake/android.toolchain.cmake','CMAKE_C_COMPILER':'/ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/clang','CMAKE_CXX_COMPILER':'/ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++'}
+        return '\n'.join(k+':STRING='+v for k,v in options.items())
+    def test_cross_options(self): cross.check_cache(self.cache(),Path('/ndk'))
+    def test_wrong_cross_options(self):
+        for before,after in [('arm64-v8a','x86_64'),('android-24','android-21'),('armv8-a','native'),('c++_static','c++_shared'),('GGML_METAL:STRING=OFF','GGML_METAL:STRING=ON'),('/ndk/toolchains','/usr/toolchains'),('/ndk/build','/other/build')]:
+            with self.assertRaises(ValueError): cross.check_cache(self.cache().replace(before,after),Path('/ndk'))
+
+if __name__=='__main__': unittest.main()
