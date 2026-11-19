@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.."
 [[ $MADINFER_EXPECTED_SHA =~ ^[0-9a-f]{40}$ ]]
 [[ $(git rev-parse HEAD) == "$MADINFER_EXPECTED_SHA" && -z $(git status --porcelain) ]]
 [[ $(uname -s) == Linux && $(uname -m) == x86_64 ]]
-for name in MADINFER_LLAMA_LIB_DIR MADINFER_LLAMA_ARM_ARCH CARGO_BUILD_TARGET RUSTFLAGS CARGO_ENCODED_RUSTFLAGS CC CXX CFLAGS CXXFLAGS LDFLAGS CMAKE_TOOLCHAIN_FILE CMAKE_GENERATOR CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS; do
+for name in MADINFER_LLAMA_LIB_DIR MADINFER_LLAMA_ARM_ARCH CARGO_BUILD_TARGET RUSTFLAGS CARGO_ENCODED_RUSTFLAGS CC CXX CFLAGS CXXFLAGS LDFLAGS CMAKE_TOOLCHAIN_FILE CMAKE_GENERATOR CARGO_BUILD_BUILD_DIR CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS; do
   [[ -z ${!name:-} ]] || { echo 'FAIL: unsupported build override' >&2; exit 1; }
 done
 stage=sdk-prerequisites
@@ -49,17 +49,24 @@ export AR_aarch64_linux_android="$tools/llvm-ar"
 export MADINFER_LLAMA_ARM_ARCH=armv8-a
 export MADINFER_LLAMA_CMAKE_JOBS=2
 export CARGO_TARGET_DIR="$PWD/target/android-native-preview"
+export CARGO_BUILD_BUILD_DIR="$CARGO_TARGET_DIR"
 [[ ! -e $CARGO_TARGET_DIR && ! -e build/android-native-preview ]]
 stage=source-and-inspector-tests
 python3 scripts/test-android-preview.py
 python3 scripts/check-android-native-source.py
 # True Android target; host build dependencies are not Android runtime validation.
+stage=cargo-metadata
+mkdir -p build/android-native-preview-logs
+metadata="$PWD/build/android-native-preview-logs/cargo-metadata.json"
+messages="$PWD/build/android-native-preview-logs/cargo-messages.jsonl"
+[[ ! -e $metadata && ! -e $messages ]]
+cargo metadata --locked --offline --no-deps --format-version 1 >"$metadata"
 stage=native-cross-build
 export CMAKE_EXPORT_COMPILE_COMMANDS=ON
-cargo rustc -p madinfer-ffi --lib --crate-type staticlib --locked --offline --release \
-  --target aarch64-linux-android --no-default-features --features standalone,llama-sys
+cargo rustc --message-format=json -p madinfer-ffi --lib --crate-type staticlib --locked --offline --release \
+  --target aarch64-linux-android --no-default-features --features standalone,llama-sys >"$messages"
 stage=actual-compile-proof
-python3 scripts/check-android-native-source.py "$CARGO_TARGET_DIR" "$ANDROID_NDK_HOME"
+python3 scripts/check-android-native-source.py "$CARGO_TARGET_DIR" "$ANDROID_NDK_HOME" "$metadata" "$messages"
 stage=package-relocation
 package="$PWD/build/android-native-preview/sdk"
 mkdir -p "$package/include" "$package/lib/arm64-v8a" "$package/notices"

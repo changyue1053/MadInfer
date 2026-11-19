@@ -129,4 +129,60 @@ class BoundedProofDiagnostics(unittest.TestCase):
         with patch.object(cross,'main'),patch.object(cross.os,'write') as write:
             self.assertEqual(cross.cli(),0); write.assert_not_called()
 
+
+
+class CargoOutDirProof(unittest.TestCase):
+    def fixtures(self, out='/dedicated/aarch64-linux-android/release/build/backend-hash/out'):
+        pid='path+file:///source/crates/madinfer-backend-llama#0.1.0'
+        metadata={'version':1,'workspace_root':'/source','target_directory':'/dedicated',
+                  'workspace_members':[pid], 'packages':[{'id':pid,'name':'madinfer-backend-llama',
+                  'source':None,'manifest_path':'/source/crates/madinfer-backend-llama/Cargo.toml'}]}
+        messages=[{'reason':'build-script-executed','package_id':pid,'out_dir':out},
+                  {'reason':'build-finished','success':True}]
+        return metadata,messages
+    def verify(self,metadata,messages):
+        return cross.select_out_dir(metadata,messages,Path('/source'),Path('/dedicated'))
+    def test_synthetic_old_and_new_layouts(self):
+        # Both are examples only, not a claim of observing these paths on a runner.
+        for out in ('/dedicated/aarch64-linux-android/release/build/backend-hash/out',
+                    '/dedicated/aarch64-linux-android/release/build-scripts/backend-hash/out'):
+            self.assertEqual(self.verify(*self.fixtures(out)),Path(out))
+    def test_missing_duplicate_wrong_component(self):
+        for mode in ('missing','duplicate','wrong'):
+            a,b=self.fixtures()
+            if mode=='missing': b.pop(0)
+            elif mode=='duplicate': b.insert(0,dict(b[0]))
+            else: b[0]['package_id']='path+file:///source/crates/other#0.1.0'
+            with self.assertRaises(cross.ProofRejected): self.verify(a,b)
+    def test_out_containment_relative_traversal(self):
+        for out in ('/elsewhere/out','relative/out','/dedicated/../outside/out','/dedicated','/dedicated-other/out'):
+            with self.assertRaises(cross.ProofRejected): self.verify(*self.fixtures(out))
+    def test_wrong_metadata_manifest_membership_source(self):
+        for mode in ('root','target','manifest','membership','registry','duplicate'):
+            a,b=self.fixtures()
+            if mode=='root': a['workspace_root']='/other'
+            elif mode=='target': a['target_directory']='/other'
+            elif mode=='manifest': a['packages'][0]['manifest_path']='/other/Cargo.toml'
+            elif mode=='membership': a['workspace_members']=[]
+            elif mode=='registry': a['packages'][0]['source']='registry+elsewhere'
+            else: a['packages'].append(dict(a['packages'][0]))
+            with self.assertRaises(cross.ProofRejected): self.verify(a,b)
+    def test_failure_missing_finish_bad_schema(self):
+        for mode in ('false','missing','schema','unknown','bool-schema'):
+            a,b=self.fixtures()
+            if mode=='false': b[-1]['success']=False
+            elif mode=='missing': b.pop()
+            elif mode=='schema': b[0]['out_dir']=None
+            elif mode=='bool-schema': b[-1]['success']=1
+            else: b.insert(0,{'reason':'unknown'})
+            with self.assertRaises(cross.ProofRejected): self.verify(a,b)
+    def test_symlink_escape(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp); inside=root/'dedicated'; inside.mkdir()
+            outside=root/'elsewhere'; outside.mkdir()
+            (inside/'escape').symlink_to(outside,target_is_directory=True)
+            a,b=self.fixtures(str(inside/'escape'/'out')); a['target_directory']=str(inside)
+            with self.assertRaises(cross.ProofRejected): cross.select_out_dir(a,b,Path('/source'),inside)
+
 if __name__=='__main__': unittest.main()

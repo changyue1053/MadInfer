@@ -1,6 +1,6 @@
 # Android ARM64 native SDK packaging candidate (not runtime)
 
-Current bounded-diagnostic fix base: public 3ba1a4963b3049b5c89184d54abcd198720a6235.
+Current Cargo output-discovery fix base: public 85a36f039572e36bbedeee3db5d380072a2fd8c1.
 Original packaging base: public 56db9979cfe3f8710a265b808178ebee3dc8506e. Its successful iOS
 synthetic execution is not evidence of Android compilation or execution.
 This candidate has not been cross-compiled locally. No Rust/CMake/Android NDK
@@ -69,7 +69,7 @@ not a distributed SDK release.
 
 ## Local evidence
 
-Nineteen synthetic inspector tests pass, covering malformed ELF, wrong architecture,
+Twenty-five synthetic inspector tests pass, covering malformed ELF, wrong architecture,
 wrong ELF class/type, truncated headers, 4KiB/misaligned/W+X loads, missing loads,
 and wrong cross-toolchain settings. The 373-file engine checksum passes.
 Shell syntax, diff whitespace and public source-hygiene checks pass. Missing
@@ -148,3 +148,45 @@ Additional tests prove missing compiler cache entries do not remove mandatory
 command proof, wrong present cache values still fail, every fixed reason is
 bounded, unknown errors cannot leak data, and success emits no failure.
 No hosted rerun or consumer link has been performed for this correction.
+
+
+## Authoritative Cargo OUT_DIR discovery
+
+Public run 44513694172 at exact 85a36f039572e36bbedeee3db5d380072a2fd8c1
+reported `proof=cache-count` after Cargo succeeded. The assumed intermediate
+`target/<triple>/release/build/<package-hash>/out` glob is removed completely.
+No recursive search or fallback layout is substituted.
+
+The pinned Cargo invocation now writes `--message-format=json` stdout only to
+a job-local file. `cargo metadata --locked --offline --no-deps --format-version 1`
+supplies the exact backend package ID after verification of the canonical local
+workspace manifest, package name, workspace membership, local source and
+workspace/target directories. Exactly one matching `build-script-executed`
+event with an absolute canonical out_dir is mandatory, along with exactly one
+successful final `build-finished` event. Out_dir must resolve inside the fresh
+dedicated build root. Only its exact `llama-build/CMakeCache.txt` and
+`llama-build/compile_commands.json` are read, rejecting missing files and
+symlink escapes. Both CARGO_TARGET_DIR and CARGO_BUILD_BUILD_DIR are explicitly
+set to that same dedicated directory, avoiding inherited intermediate-location
+configuration. Production build.rs is unchanged. The final staticlib stays at
+the documented target/profile artifact location; all archive/link/ELF gates
+still apply and will reject absent/wrong artifacts.
+
+Cargo's documented JSON protocol explicitly supplies build-script out_dir and
+opaque package IDs, while build.build-dir controls intermediate output separate
+from final artifacts:
+- https://doc.rust-lang.org/cargo/reference/external-tools.html
+- https://doc.rust-lang.org/cargo/reference/config.html#buildbuild-dir
+
+The versioned 1.100.0 documentation URL was not accessible and no local Cargo
+binary exists. Therefore the exact 1.100 default directory layout has NOT been
+reproduced or asserted. This change intentionally consumes authoritative emitted
+paths rather than depending on a version's internal directory naming. The
+runner remains pinned to Rust 1.100.0, and missing/changed JSON schema fails.
+
+Six additional synthetic parser tests cover two illustrative intermediate
+layouts, missing/duplicate/wrong package events, absolute/canonical containment,
+symlink escape, wrong metadata source/membership/manifest, missing/failed finish
+and invalid schemas. These are not captured genuine Cargo streams and do not
+prove a successful cross-build/link of this revision. Metadata/stream payloads
+are never printed; errors remain fixed allowlisted diagnostic labels.
