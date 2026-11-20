@@ -1,0 +1,81 @@
+name: iOS native installed cancellation and lifetime qualification
+on:
+  push:
+    branches: [checkpoint/madinfer-ios-native-lifecycle]
+permissions:
+  contents: read
+concurrency:
+  group: ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  host-contracts:
+    name: Linux source and emulated contracts (not inference)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RUSTUP_TOOLCHAIN: 1.100.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - run: bash scripts/run-preview-stage.sh host-tools rustup toolchain install 1.100.0 --profile minimal --component rustfmt,clippy --no-self-update
+      - run: bash scripts/run-preview-stage.sh host-fetch cargo fetch --locked
+      - name: Existing no-model source, host ABI and emulation gate
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: bash scripts/run-preview-stage.sh host-contracts bash ci/verify.sh
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+      RUSTUP_TOOLCHAIN: 1.100.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - name: Exact source and no override preflight
+        env:
+          MADINFER_EXPECTED_SHA: ${{ github.sha }}
+        run: bash ci/ios-positive-preflight.sh
+      - name: Verify preinstalled Apple tools and prepare pinned Rust
+        run: |
+          bash scripts/run-preview-stage.sh apple-prerequisites bash -euo pipefail <<'STAGE'
+            test "$(uname -m)" = arm64
+            test "$(xcodebuild -version)" = $'Xcode 26.2\nBuild version 17C52'
+            # Do not accept licenses or install Apple SDKs/runtimes. Missing tools fail.
+            xcrun simctl list runtimes available
+            test "$(cmake --version | head -n 1)" = "cmake version 4.4.5"
+            rustup toolchain install 1.100.0 --profile minimal --no-self-update
+            rustup target add --toolchain 1.100.0 aarch64-apple-ios aarch64-apple-ios-sim
+            cargo fetch --locked --target aarch64-apple-ios --target aarch64-apple-ios-sim
+          STAGE
+      - name: Build and inspect standalone XCFramework
+        run: |
+          bash scripts/run-preview-stage.sh package bash -euo pipefail <<'STAGE'
+            python3 scripts/test-ios-package-inspector.py
+            python3 scripts/test-ios-test-results.py
+            python3 scripts/test-ios-positive.py
+            python3 scripts/test-ios-lifecycle.py
+            python3 scripts/prepare-ios-lifecycle.py
+            bash scripts/build-ios.sh
+          STAGE
+      - name: Build independent device consumer (unsigned, no device execution)
+        run: |
+          bash scripts/run-preview-stage.sh device-consumer bash -euo pipefail <<'STAGE'
+            xcodebuild -project build/ios/positive-consumer/MadInferSmoke.xcodeproj -scheme MadInferSmoke \
+              -destination 'generic/platform=iOS' -derivedDataPath build/ios/device-consumer \
+              ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build
+          STAGE
+      - name: Execute independent binary consumer on job-owned ARM64 iOS simulator
+        run: bash scripts/test-ios-lifecycle-simulator.sh
+      # Only first-party generated synthetic weights, no downloads/uploads/releases/devices.
