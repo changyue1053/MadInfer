@@ -1,0 +1,91 @@
+name: ARM64 Linux KVM prerequisite observation
+on:
+  push:
+    branches: [checkpoint/madinfer-android-arm64-kvm-prereq]
+permissions: {}
+jobs:
+  observe:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/checkpoint/madinfer-android-arm64-kvm-prereq'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 3
+    steps:
+      # The pushed revision supplies this inline workflow; no repository checkout is needed.
+      - name: Collect read-only KVM API prerequisite
+        shell: bash
+        run: |
+          python3 -I -B - <<'PYTHON'
+          """Observe ARM64 Linux KVM without creating a virtual machine."""
+          import errno
+          import fcntl
+          import os
+          from pathlib import Path
+          import stat
+
+          # Linux UAPI linux/kvm.h: _IO(KVMIO, 0x00), KVMIO=0xAE. No input argument.
+          KVM_GET_API_VERSION = 0xAE00
+          KVM_API_VERSION = 12
+
+          def identity(info):
+              return info.st_dev, info.st_ino, info.st_rdev
+
+          def expected_device(info):
+              return stat.S_ISCHR(info.st_mode) and (os.major(info.st_rdev), os.minor(info.st_rdev)) == (10, 232)
+
+          def observe(path=Path('/dev/kvm')):
+              try:
+                  before = path.lstat()
+              except FileNotFoundError:
+                  return 'missing'
+              except PermissionError:
+                  return 'permission-denied'
+              except OSError:
+                  return 'stat-failed'
+              if not expected_device(before):
+                  return 'wrong-type-or-device'
+              try:
+                  fd = os.open(path, os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK)
+              except PermissionError:
+                  return 'permission-denied'
+              except FileNotFoundError:
+                  return 'missing'
+              except OSError as error:
+                  return 'wrong-type-or-device' if error.errno == errno.ELOOP else 'open-failed'
+              try:
+                  try:
+                      opened = os.fstat(fd)
+                  except OSError:
+                      return 'fd-stat-failed'
+                  if not expected_device(opened) or identity(before) != identity(opened):
+                      return 'wrong-type-or-device'
+                  try:
+                      version = fcntl.ioctl(fd, KVM_GET_API_VERSION, 0)
+                  except PermissionError:
+                      return 'permission-denied'
+                  except OSError as error:
+                      if error.errno in (errno.ENOTTY, errno.EINVAL, errno.ENOSYS):
+                          return 'api-unsupported'
+                      return 'api-query-failed'
+                  return 'api-v12-query-ok' if version == KVM_API_VERSION else 'api-unsupported'
+              finally:
+                  os.close(fd)
+
+          def main():
+              host = os.uname()
+              if host.sysname != 'Linux' or host.machine != 'aarch64':
+                  print('FAIL: expected ARM64 Linux')
+                  return 1
+              if os.getuid() == 0 or os.geteuid() == 0:
+                  print('FAIL: nonroot runner required')
+                  return 1
+              print('PREREQ host=linux-aarch64')
+              print('PREREQ kvm=' + observe())
+              print('PREREQ scope=observation-only-no-vm-no-runtime')
+              return 0
+
+          if __name__ == '__main__':
+              try:
+                  raise SystemExit(main())
+              except Exception:
+                  print('FAIL: KVM probe collection')
+                  raise SystemExit(1) from None
+          PYTHON
