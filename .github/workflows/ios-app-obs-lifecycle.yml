@@ -1,0 +1,94 @@
+name: App-owned iOS pending cancellation with optional observation
+on:
+  push:
+    branches: [checkpoint/madinfer-ios-app-obs-lifecycle]
+permissions:
+  contents: read
+concurrency:
+  group: ios-app-obs-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  standalone-off:
+    name: App-owned iOS native six optional-off
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+      RUSTUP_TOOLCHAIN: 1.100.0
+      CARGO_NET_OFFLINE: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+          submodules: false
+          lfs: false
+      - name: Verify exact public app-owned base and frozen lifecycle input
+        run: |
+          test "$(git rev-parse HEAD^)" = a6b0e579153053b4e5a8fb3586984a8c8ea4c597
+          test "$(git rev-parse 'HEAD^1^{tree}')" = 12e61b176a683a598d13814f9c0e7bf20469b1a6
+          test "$(git hash-object ios-app-obs-lifecycle/Fixture.m)" = e95856a72e6b68c0b8f52a5d6b823c3756171d4a
+          git diff --quiet HEAD^ HEAD -- crates ios ios-app-obs-demo ios-obs-composition scripts LICENSE THIRD_PARTY.md
+      - name: Exact original preflight
+        env:
+          MADINFER_EXPECTED_SHA: ${{ github.sha }}
+        run: bash ci/ios-positive-preflight.sh
+      - name: Verify portable provisioning contracts without downloads
+        run: python3 ios-app-obs-demo/test_provision_cmake.py
+      - name: Provision exact official job-private CMake
+        run: python3 ios-app-obs-demo/provision_cmake.py
+      - name: Original pinned tool and dependency preparation
+        run: bash ios-obs-composition/prerequisites.sh
+      - name: Build inspect and execute exactly six native tests
+        run: bash ios-app-obs-lifecycle/run.sh off
+  optional-on:
+    name: App-owned iOS native six optional-on
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+      RUSTUP_TOOLCHAIN: 1.100.0
+      CARGO_NET_OFFLINE: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+          submodules: false
+          lfs: false
+      - name: Verify exact public app-owned base and frozen lifecycle input
+        run: |
+          test "$(git rev-parse HEAD^)" = a6b0e579153053b4e5a8fb3586984a8c8ea4c597
+          test "$(git rev-parse 'HEAD^1^{tree}')" = 12e61b176a683a598d13814f9c0e7bf20469b1a6
+          test "$(git hash-object ios-app-obs-lifecycle/Fixture.m)" = e95856a72e6b68c0b8f52a5d6b823c3756171d4a
+          git diff --quiet HEAD^ HEAD -- crates ios ios-app-obs-demo ios-obs-composition scripts LICENSE THIRD_PARTY.md
+      - name: Exact original preflight
+        env:
+          MADINFER_EXPECTED_SHA: ${{ github.sha }}
+        run: bash ci/ios-positive-preflight.sh
+      - name: Verify portable provisioning contracts without downloads
+        run: python3 ios-app-obs-demo/test_provision_cmake.py
+      - name: Provision exact official job-private CMake
+        run: python3 ios-app-obs-demo/provision_cmake.py
+      - name: Original pinned tool and dependency preparation
+        run: bash ios-obs-composition/prerequisites.sh
+      - name: Public exact optional producer only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: changyue1053/MadObs
+          ref: 4af77ffa464a48307e5ff2d95f10b835919d205b
+          path: build/ios/obs-producer
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+      - name: Build inspect and execute exactly six native tests
+        run: bash ios-app-obs-lifecycle/run.sh on
