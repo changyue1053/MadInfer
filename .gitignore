@@ -5,3 +5,9 @@ Cargo.lock.orig
 # 本地评估集与模型权重永不入库（内容寻址库在设备上，CI 走 fixtures/）
 /models
 /blobs
+
+/build/
+
+# Generated first-party synthetic fixtures remain local/CI-only.
+**/*.gguf
+**/__pycache__/
